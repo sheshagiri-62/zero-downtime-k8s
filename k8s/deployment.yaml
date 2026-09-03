@@ -21,8 +21,8 @@ spec:
         - name: ghcr-secret
       containers:
         - name: myapp
-          image: docker.io/library/myapp:1.0.0
-          imagePullPolicy: Never
+          image: ghcr.io/sheshagiri-62/myapp:1.0.0
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           envFrom:
