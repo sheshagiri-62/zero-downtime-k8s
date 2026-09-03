@@ -33,7 +33,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: myapp
-          image: ghcr.io/sheshagiri-62/myapp:latest
+          image: ghcr.io/sheshagiri-62/myapp:1.1.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
