@@ -46,7 +46,7 @@ jobs:
       - name: Build Docker image (for scanning)
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./app
           load: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test
 
@@ -64,7 +64,7 @@ jobs:
         if: success()
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./app
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
