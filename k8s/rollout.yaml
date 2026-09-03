@@ -26,12 +26,14 @@ spec:
     metadata:
       labels:
         app: myapp
+      annotations:
+        version: "1.1.0"
     spec:
       imagePullSecrets:
         - name: ghcr-secret
       containers:
         - name: myapp
-          image: ghcr.io/sheshagiri-62/myapp:1.0.0
+          image: ghcr.io/sheshagiri-62/myapp:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
