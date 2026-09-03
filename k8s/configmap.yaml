@@ -3,6 +3,8 @@ kind: ConfigMap
 metadata:
   name: app-config
   namespace: zero-downtime
+  annotations:
+    gitops-test: "true"
 data:
   APP_VERSION: "1.0.0"
   FAIL_RATE: "0.0"
