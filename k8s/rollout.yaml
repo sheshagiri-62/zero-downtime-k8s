@@ -1,13 +1,24 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: myapp
   namespace: zero-downtime
   labels:
     app: myapp
-    version: "1.0.0"
 spec:
   replicas: 4
+  strategy:
+    canary:
+      steps:
+        - setWeight: 10
+        - pause: {duration: 30s}
+        - setWeight: 25
+        - pause: {duration: 30s}
+        - setWeight: 50
+        - pause: {duration: 30s}
+        - setWeight: 90
+        - pause: {duration: 30s}
+        - setWeight: 100
   selector:
     matchLabels:
       app: myapp
@@ -15,7 +26,6 @@ spec:
     metadata:
       labels:
         app: myapp
-        version: "1.0.0"
     spec:
       imagePullSecrets:
         - name: ghcr-secret
@@ -43,11 +53,9 @@ spec:
               port: 8000
             initialDelaySeconds: 5
             periodSeconds: 10
-            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /health
               port: 8000
-            initialDelaySeconds: 15
-            periodSeconds: 20
-            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 15
