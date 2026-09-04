@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: myapp-monitor
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames: ["zero-downtime"]
+  selector:
+    matchLabels:
+      app: myapp
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
