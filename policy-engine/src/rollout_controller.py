@@ -58,11 +58,11 @@ def get_rollout_status(name: str, namespace: str) -> dict:
 def promote(name: str, namespace: str):
     """Promote the rollout manually."""
     logger.info(f"Promoting rollout {name} in {namespace}")
-    cmd = ["kubectl", "argo", "rollouts", "promote", name, "-n", namespace]
+    cmd = [r"C:\Users\shesh\zero-downtime-k8s\kubectl-argo-rollouts.exe", "promote", name, "-n", namespace]
     run_command(cmd)
 
 def abort(name: str, namespace: str):
     """Abort the rollout manually."""
     logger.warning(f"Aborting rollout {name} in {namespace}")
-    cmd = ["kubectl", "argo", "rollouts", "abort", name, "-n", namespace]
+    cmd = [r"C:\Users\shesh\zero-downtime-k8s\kubectl-argo-rollouts.exe", "abort", name, "-n", namespace]
     run_command(cmd)
