@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myapp-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  myapp.json: |-
+    {
+      "title": "MyApp Zero-Downtime Metrics",
+      "tags": ["myapp"],
+      "timezone": "browser",
+      "refresh": "5s",
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "Request Rate (per sec)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "targets": [ { "expr": "sum(rate(app_requests_total[1m])) by (status)", "legendFormat": "HTTP {{status}}" } ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Error Rate %",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "targets": [ { "expr": "(sum(rate(app_requests_total{status=\"500\"}[1m])) / sum(rate(app_requests_total[1m]))) * 100", "legendFormat": "Error %" } ]
+        },
+        {
+          "type": "timeseries",
+          "title": "P95 Latency (seconds)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "targets": [ { "expr": "histogram_quantile(0.95, sum(rate(app_request_latency_seconds_bucket[5m])) by (le))", "legendFormat": "P95 Latency" } ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Ready Pods",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "targets": [ { "expr": "sum(kube_pod_status_ready{namespace=\"zero-downtime\", condition=\"true\"}) by (pod)", "legendFormat": "{{pod}}" } ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Pod Restarts",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+          "targets": [ { "expr": "kube_pod_container_status_restarts_total{namespace=\"zero-downtime\"}", "legendFormat": "{{pod}}" } ]
+        },
+        {
+          "type": "timeseries",
+          "title": "CPU Usage (cores)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+          "targets": [ { "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"zero-downtime\", container=\"myapp\"}[1m])) by (pod)", "legendFormat": "{{pod}}" } ]
+        }
+      ]
+    }
