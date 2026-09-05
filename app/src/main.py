@@ -4,7 +4,7 @@ import asyncio
 from fastapi import FastAPI, Response, HTTPException
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
-APP_VERSION = os.getenv("APP_VERSION", "2.0.0")
+APP_VERSION = os.getenv("APP_VERSION", "1.9.0")
 FAIL_RATE = float(os.getenv("FAIL_RATE", "0.0"))
 EXTRA_LATENCY_MS = int(os.getenv("EXTRA_LATENCY_MS", "0"))
 
