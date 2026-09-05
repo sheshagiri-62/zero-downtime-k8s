@@ -19,6 +19,7 @@ jobs:
       contents: read
       packages: write
       security-events: write
+      id-token: write
 
     steps:
       - name: Checkout repository
@@ -61,6 +62,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Build and push Docker image
+        id: build-and-push
         if: success()
         uses: docker/build-push-action@v5
         with:
@@ -70,3 +72,23 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.spdx.json
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.5.0
+
+      - name: Sign the published Docker image
+        if: ${{ github.event_name != 'pull_request' }}
+        run: cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }}
