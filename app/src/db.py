@@ -15,6 +15,26 @@ def init_db():
         created_at TIMESTAMP DEFAULT NOW()
     )
     """
+    create_users_sql = """
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email TEXT UNIQUE,
+        hashed_password TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+    )
+    """
+    create_orders_sql = """
+    CREATE TABLE IF NOT EXISTS orders (
+        id SERIAL PRIMARY KEY,
+        user_id INT,
+        items JSONB,
+        total REAL,
+        app_version TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+    )
+    """
     with engine.connect() as conn:
         conn.execute(text(create_table_sql))
+        conn.execute(text(create_users_sql))
+        conn.execute(text(create_orders_sql))
         conn.commit()
