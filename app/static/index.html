@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K8s Swag Shop</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav>
+        <div class="logo">K8s Swag Shop</div>
+        <div class="links">
+            <a href="#" onclick="showPage('home')">Home</a>
+            <a href="#" onclick="showPage('cart')">Cart (<span id="cart-count">0</span>)</a>
+            <a href="#" onclick="showPage('orders')" id="nav-orders" style="display:none;">Orders</a>
+            <a href="#" onclick="showPage('login')" id="nav-login">Login</a>
+            <a href="#" onclick="logout()" id="nav-logout" style="display:none;">Logout</a>
+        </div>
+    </nav>
+
+    <div id="home-page" class="page">
+        <h1>Products</h1>
+        <div id="product-grid" class="grid"></div>
+    </div>
+
+    <div id="cart-page" class="page" style="display:none;">
+        <h1>Your Cart</h1>
+        <div id="cart-items"></div>
+        <h3>Total: $<span id="cart-total">0.00</span></h3>
+        <button onclick="checkout()">Checkout</button>
+    </div>
+
+    <div id="orders-page" class="page" style="display:none;">
+        <h1>Your Orders</h1>
+        <div id="orders-list"></div>
+    </div>
+
+    <div id="login-page" class="page" style="display:none;">
+        <h1>Login / Register</h1>
+        <input type="email" id="email" placeholder="Email"><br><br>
+        <input type="password" id="password" placeholder="Password"><br><br>
+        <button onclick="login()">Login</button>
+        <button onclick="register()">Register</button>
+        <p id="auth-msg"></p>
+    </div>
+
+    <div id="version-badge">Served by v<span id="version-text">Unknown</span></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
