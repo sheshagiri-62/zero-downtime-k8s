@@ -45,6 +45,9 @@ jobs:
             type=raw,value=latest
             type=raw,value=1.11.1
 
+      - name: Debug pip install
+        run: pip install -r app/requirements.txt
+
       - name: Build Docker image (for scanning)
         uses: docker/build-push-action@v5
         with:
