@@ -43,7 +43,7 @@ jobs:
           tags: |
             type=sha
             type=raw,value=latest
-            type=raw,value=1.11.0
+            type=raw,value=1.11.1
 
       - name: Build Docker image (for scanning)
         uses: docker/build-push-action@v5

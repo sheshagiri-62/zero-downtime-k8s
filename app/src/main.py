@@ -17,7 +17,7 @@ import jwt
 from sqlalchemy import text
 from src.db import engine, init_db
 
-APP_VERSION = os.getenv("APP_VERSION", "1.11.0")
+APP_VERSION = os.getenv("APP_VERSION", "1.11.1")
 FAIL_RATE = float(os.getenv("FAIL_RATE", "0.0"))
 EXTRA_LATENCY_MS = int(os.getenv("EXTRA_LATENCY_MS", "0"))
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "f3c9a1d5-89b2-4d7c-9304-4b486b8c47d2")
