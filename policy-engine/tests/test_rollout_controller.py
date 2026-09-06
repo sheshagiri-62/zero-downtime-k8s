@@ -63,7 +63,7 @@ def test_promote(mock_subprocess):
     mock_subprocess.return_value = mock_result
     
     promote("myapp", "zero-downtime")
-    mock_subprocess.assert_called_once_with(["./kubectl-argo-rollouts.exe", "promote", "myapp", "-n", "zero-downtime"], capture_output=True, text=True)
+    mock_subprocess.assert_called_once_with([r"C:\Users\shesh\zero-downtime-k8s\kubectl-argo-rollouts.exe", "promote", "myapp", "-n", "zero-downtime"], capture_output=True, text=True)
 
 def test_abort(mock_subprocess):
     mock_result = MagicMock()
@@ -71,4 +71,4 @@ def test_abort(mock_subprocess):
     mock_subprocess.return_value = mock_result
     
     abort("myapp", "zero-downtime")
-    mock_subprocess.assert_called_once_with(["./kubectl-argo-rollouts.exe", "abort", "myapp", "-n", "zero-downtime"], capture_output=True, text=True)
+    mock_subprocess.assert_called_once_with([r"C:\Users\shesh\zero-downtime-k8s\kubectl-argo-rollouts.exe", "abort", "myapp", "-n", "zero-downtime"], capture_output=True, text=True)

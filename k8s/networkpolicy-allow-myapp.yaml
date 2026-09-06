@@ -18,7 +18,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: zero-downtime
+              kubernetes.io/metadata.name: zero-downtime # TODO: Update this namespace if dashboard runs elsewhere
     - from:
         - namespaceSelector:
             matchLabels:

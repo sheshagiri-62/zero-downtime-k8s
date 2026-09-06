@@ -6,6 +6,4 @@ metadata:
   annotations:
     gitops-test: "true"
 data:
-  APP_VERSION: "1.4.0"
-  FAIL_RATE: "0.5"
-  EXTRA_LATENCY_MS: "0"
+  APP_VERSION: "1.8.0"

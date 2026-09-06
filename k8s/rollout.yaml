@@ -9,6 +9,8 @@ spec:
   replicas: 4
   strategy:
     canary:
+      stableService: myapp-stable-svc
+      canaryService: myapp-canary-svc
       steps:
         - setWeight: 10
         - pause: {}
@@ -26,13 +28,13 @@ spec:
       labels:
         app: myapp
       annotations:
-        version: "1.9.0"
+        version: "1.10.0"
     spec:
       imagePullSecrets:
         - name: ghcr-secret
       containers:
         - name: myapp
-          image: ghcr.io/sheshagiri-62/zero-downtime-k8s/myapp:1.9.0
+          image: ghcr.io/sheshagiri-62/zero-downtime-k8s/myapp:1.10.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
@@ -47,7 +49,7 @@ spec:
               memory: "128Mi"
             limits:
               cpu: "500m"
-              memory: "256Mi"
+              memory: "1Gi"
           readinessProbe:
             httpGet:
               path: /health

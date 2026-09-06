@@ -30,6 +30,7 @@ def get_rollout_status(name: str, namespace: str) -> dict:
     spec = data.get("spec", {})
     
     phase = status.get("phase", "Unknown")
+    generation = data.get("metadata", {}).get("generation", 0)
     
     # If the phase is "Healthy", the rollout is usually fully promoted and stable.
     # If it's "Progressing" or "Paused", it's in a canary.
@@ -52,6 +53,7 @@ def get_rollout_status(name: str, namespace: str) -> dict:
         "step_index": current_step_index,
         "weight": weight,
         "is_canary": is_canary,
+        "generation": generation,
         "raw_status": status
     }
 
