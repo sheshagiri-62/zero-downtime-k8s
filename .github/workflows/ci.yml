@@ -43,7 +43,7 @@ jobs:
           tags: |
             type=sha
             type=raw,value=latest
-            type=raw,value=1.11.3
+            type=raw,value=1.11.4
 
       - name: Debug pip install
         run: pip install -r app/requirements.txt
@@ -60,7 +60,7 @@ jobs:
         with:
           image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test'
           format: 'table'
-          exit-code: '0'
+          exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
