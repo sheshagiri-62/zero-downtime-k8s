@@ -12,8 +12,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-from passlib.context import CryptContext
-from jose import jwt
+import bcrypt
+import jwt
 from sqlalchemy import text
 from src.db import engine, init_db
 
@@ -29,11 +29,15 @@ app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="src/../static"), name="static")
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-def get_password_hash(password):
-    return pwd_context.hash(password)
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+def get_password_hash(password: str) -> str:
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    try:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except ValueError:
+        return False
+
 def create_access_token(data: dict):
     return jwt.encode(data, JWT_SECRET, algorithm="HS256")
 
