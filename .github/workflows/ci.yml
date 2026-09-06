@@ -43,7 +43,7 @@ jobs:
           tags: |
             type=sha
             type=raw,value=latest
-            type=raw,value=1.11.2
+            type=raw,value=1.11.3
 
       - name: Debug pip install
         run: pip install -r app/requirements.txt

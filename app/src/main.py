@@ -17,7 +17,7 @@ import jwt
 from sqlalchemy import text
 from src.db import engine, init_db
 
-APP_VERSION = os.getenv("APP_VERSION", "1.11.2")
+APP_VERSION = os.getenv("APP_VERSION", "1.11.3")
 FAIL_RATE = float(os.getenv("FAIL_RATE", "0.0"))
 EXTRA_LATENCY_MS = int(os.getenv("EXTRA_LATENCY_MS", "0"))
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "f3c9a1d5-89b2-4d7c-9304-4b486b8c47d2")
@@ -138,7 +138,7 @@ async def get_orders(user_id: int = Depends(get_current_user)):
     for r in results:
         orders.append({
             "id": r[0],
-            "items": json.loads(r[1]),
+            "items": r[1] if isinstance(r[1], list) else json.loads(r[1]),
             "total": r[2],
             "app_version": r[3],
             "created_at": str(r[4])
