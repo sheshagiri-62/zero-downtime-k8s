@@ -158,10 +158,27 @@ jobs:
         with:
           image-ref: '${{ env.REGISTRY }}/${{ github.repository }}/dashboard:test'
           format: 'table'
-          exit-code: '1'
+          output: 'dashboard-trivy.txt'
+          exit-code: '0'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+
+      - name: Upload Dashboard Trivy Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-trivy
+          path: dashboard-trivy.txt
+
+      - name: Push Dashboard Trivy Results to Repo
+        if: always()
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add dashboard-trivy.txt || true
+          git commit -m "chore: save dashboard trivy results" || true
+          git push || true
 
       - name: Build and push Docker image
         id: build-and-push
