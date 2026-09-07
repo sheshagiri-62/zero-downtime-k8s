@@ -74,6 +74,15 @@ jobs:
           name: trivy-results
           path: trivy-results.txt
 
+      - name: Push Trivy Results to Repo
+        if: always()
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add trivy-results.txt || true
+          git commit -m "chore: save trivy results to repo" || true
+          git push || true
+
       - name: Build and push Docker image
         id: build-and-push
         if: success()
