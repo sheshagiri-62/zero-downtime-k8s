@@ -836,8 +836,11 @@ async function pollStatus() {
 
     ['ov-stable-ver','app-stable-ver'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = 'v'+sv; });
     ['ov-canary-ver','app-canary-ver'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = 'v'+cv; });
-    ['ov-stable-lbl','cl-stable-ver'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = 'Stable v'+sv; });
-    ['ov-canary-lbl','cl-canary-ver'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = 'Canary v'+cv; });
+    // Traffic bar labels: just the version, not duplicated
+    const ovStableLbl = document.getElementById('ov-stable-lbl'); if(ovStableLbl) ovStableLbl.textContent = 'Stable v'+sv;
+    const ovCanaryLbl = document.getElementById('ov-canary-lbl'); if(ovCanaryLbl) ovCanaryLbl.textContent = 'Canary v'+cv;
+    const clStableVer = document.getElementById('cl-stable-ver'); if(clStableVer) clStableVer.textContent = 'v'+sv;
+    const clCanaryVer = document.getElementById('cl-canary-ver'); if(clCanaryVer) clCanaryVer.textContent = 'v'+cv;
 
     const spEl = document.getElementById('app-stable-pct'); if(spEl) spEl.textContent = stableW;
     const cpEl = document.getElementById('app-canary-pct'); if(cpEl) cpEl.textContent = weight;
@@ -878,11 +881,13 @@ async function pollCluster() {
 async function pollMetrics() {
   try {
     const r = await fetch('/api/metrics');
+    if (!r.ok) return;
     const d = await r.json();
+    if (!d || d.error) return;
 
     // Overview mini-metrics
     const ovMetrics = document.getElementById('ov-metrics');
-    if (ovMetrics && d.rules) {
+    if (ovMetrics && d.rules && d.rules.length > 0) {
       ovMetrics.innerHTML = `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">` +
         d.rules.map(rule => `
           <div style="text-align:center;padding:10px;background:var(--bg3);border-radius:8px;border-top:2px solid ${rule.status === 'pass' ? 'var(--success)' : 'var(--danger)'}">
@@ -893,28 +898,30 @@ async function pollMetrics() {
     }
 
     // Policy engine page
-    const scoreEl = document.getElementById('pe-score');
     const sc = d.score;
+    const scoreEl = document.getElementById('pe-score');
     if (scoreEl) {
-      scoreEl.textContent = sc !== null ? sc : '—';
+      scoreEl.textContent = sc !== null && sc !== undefined ? Math.round(sc) : '—';
       scoreEl.className = 'score-num ' + (d.classification ?? 'unknown');
     }
     const barEl = document.getElementById('pe-score-bar');
     if (barEl) {
       barEl.style.width = (sc ?? 0) + '%';
-      barEl.style.background = sc >= 80 ? 'var(--success)' : sc >= 50 ? 'var(--warning)' : 'var(--danger)';
+      barEl.style.background = (sc >= 80) ? 'var(--success)' : (sc >= 50) ? 'var(--warning)' : 'var(--danger)';
     }
     const classBadge = document.getElementById('pe-class-badge');
     if (classBadge) { classBadge.textContent = d.classification ?? 'unknown'; classBadge.className = 'badge ' + badgeClass(d.classification); }
 
+    // Decision logic: use actual classification
+    const cls = d.classification ?? 'unknown';
+    const action = cls === 'healthy' ? 'PROMOTE' : cls === 'critical' ? 'ABORT' : cls === 'degraded' ? 'HOLD' : '—';
     const decEl = document.getElementById('pe-decision');
-    const action = sc >= 80 ? 'PROMOTE' : sc >= 50 ? 'HOLD' : 'ABORT';
     if (decEl) { decEl.textContent = action; decEl.style.color = actionColor(action); }
     const wEl = document.getElementById('pe-warnings'); if(wEl) wEl.textContent = d.warnings ?? 0;
     const cEl = document.getElementById('pe-criticals'); if(cEl) cEl.textContent = d.criticals ?? 0;
 
     const rulesEl = document.getElementById('pe-rules');
-    if (rulesEl && d.rules) {
+    if (rulesEl && d.rules && d.rules.length > 0) {
       rulesEl.innerHTML = d.rules.map(rule => `
         <div class="metric-row">
           <span class="name">${rule.name}</span>
@@ -1008,11 +1015,15 @@ async function startInjection() {
   const intensity = document.getElementById('fi-intensity').value;
   const duration = parseInt(document.getElementById('fi-duration').value);
 
-  if (target === 'stable') {
-    if (!confirm('⚠️ WARNING: You are injecting a failure into STABLE pods. Real users will be affected. This is only for demonstrating the contrast with canary isolation. Proceed?')) return;
-  } else {
-    if (!confirm(`Inject "${type}" failure into CANARY pods for ${duration}s?`)) return;
-  }
+  const warning = target === 'stable'
+    ? '⚠️ WARNING: Injecting into STABLE pods will affect real users. Proceed?'
+    : `Inject "${type}" into CANARY pods for ${duration}s?`;
+
+  if (!window.confirm(warning)) return;
+
+  // Show pending state
+  const statusEl = document.getElementById('fi-status-display');
+  if (statusEl) { statusEl.className = 'inject-status'; statusEl.innerHTML = '<span style="color:var(--warning)">⏳ Sending injection request…</span>'; }
 
   try {
     const r = await fetch('/api/inject', {
@@ -1020,12 +1031,15 @@ async function startInjection() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({target, type, intensity, duration_seconds: duration})
     });
+    const resp = await r.json();
     if (r.ok) {
-      pollInjectStatus();
+      setTimeout(pollInjectStatus, 500);
     } else {
-      alert('Injection failed: ' + (await r.text()));
+      if (statusEl) { statusEl.className = 'inject-status'; statusEl.innerHTML = `<span style="color:var(--danger)">❌ Injection failed: ${JSON.stringify(resp)}</span>`; }
     }
-  } catch(e) { alert('Network error: ' + e); }
+  } catch(e) {
+    if (statusEl) { statusEl.className = 'inject-status'; statusEl.innerHTML = `<span style="color:var(--danger)">❌ Network error: ${e}</span>`; }
+  }
 }
 
 async function clearInjection() {

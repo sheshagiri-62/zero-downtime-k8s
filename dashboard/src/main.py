@@ -24,9 +24,8 @@ rule_engine = RuleEngine()
 STABLE_URL = "http://myapp-stable-svc.zero-downtime.svc.cluster.local"
 CANARY_URL = "http://myapp-canary-svc.zero-downtime.svc.cluster.local"
 
-# Mount static files
-app.mount("/ui", StaticFiles(directory="static", html=True), name="static")
-
+# NOTE: app.mount() is at the BOTTOM of this file to ensure
+# all /api/* routes are registered before the static file catch-all.
 
 @app.get("/api/cluster")
 async def get_cluster():
@@ -224,3 +223,6 @@ async def injection_status():
             results["canary"] = {"status": "unreachable"}
             
     return results
+
+# Mount static files LAST — must be after all /api/* routes
+app.mount("/ui", StaticFiles(directory="static", html=True), name="static")
