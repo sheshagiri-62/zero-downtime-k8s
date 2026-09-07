@@ -1,345 +1,1047 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ReleaseGuard — Kubernetes Deployment Safety Platform</title>
-    <style>
-        :root {
-            --bg-base: #121212;
-            --bg-panel: #1e1e1e;
-            --text-main: #e0e0e0;
-            --text-muted: #a0a0a0;
-            --accent: #bb86fc;
-            --success: #03dac6;
-            --warning: #ffb74d;
-            --danger: #cf6679;
-            --border: #333333;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReleaseGuard — Kubernetes Deployment Safety Platform</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-        body {
-            background-color: var(--bg-base);
-            color: var(--text-main);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-        }
+:root {
+  --bg: #0d0d0f;
+  --bg2: #13131a;
+  --bg3: #1a1a26;
+  --border: #2a2a3d;
+  --accent: #7c3aed;
+  --accent2: #a855f7;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --sidebar-w: 220px;
+}
 
-        h1 {
-            border-bottom: 2px solid var(--border);
-            padding-bottom: 10px;
-            color: var(--accent);
-        }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .dashboard-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  min-height: 100vh;
+  font-size: 14px;
+}
 
-        .panel {
-            background-color: var(--bg-panel);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 20px;
-        }
+/* ── SIDEBAR ── */
+nav#sidebar {
+  width: var(--sidebar-w);
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+  padding: 0 0 16px 0;
+}
 
-        .panel h2 {
-            margin-top: 0;
-            font-size: 1.2rem;
-            color: var(--accent);
-        }
+.nav-logo {
+  padding: 20px 16px 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.nav-logo h1 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent2);
+  letter-spacing: -.3px;
+}
+.nav-logo p { font-size: 10px; color: var(--muted); margin-top: 2px; }
 
-        .status-indicator {
-            font-weight: bold;
-            padding: 5px 10px;
-            border-radius: 4px;
-            display: inline-block;
-        }
+nav#sidebar a {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 16px;
+  text-decoration: none;
+  color: var(--muted);
+  border-radius: 6px;
+  margin: 1px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all .15s;
+}
+nav#sidebar a:hover { background: var(--bg3); color: var(--text); }
+nav#sidebar a.active { background: rgba(124,58,237,.15); color: var(--accent2); }
+nav#sidebar a .icon { font-size: 16px; width: 20px; text-align: center; }
 
-        .status-healthy { background-color: rgba(3, 218, 198, 0.2); color: var(--success); }
-        .status-degraded { background-color: rgba(255, 183, 77, 0.2); color: var(--warning); }
-        .status-critical { background-color: rgba(207, 102, 121, 0.2); color: var(--danger); }
+.nav-divider { height: 1px; background: var(--border); margin: 8px 16px; }
 
-        .btn {
-            background-color: var(--accent);
-            color: #000;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            text-decoration: none;
-        }
-        
-        .btn-danger {
-            background-color: var(--danger);
-            color: #fff;
-        }
-        
-        .btn-secondary {
-            background-color: var(--bg-base);
-            color: var(--text-main);
-            border: 1px solid var(--border);
-        }
+.nav-external {
+  margin-top: auto;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+.nav-external a {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--success) !important;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 8px 12px;
+  background: rgba(16,185,129,.1);
+  border-radius: 6px;
+  border: 1px solid rgba(16,185,129,.2);
+}
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
+/* ── MAIN ── */
+main {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  overflow-y: auto;
+}
 
-        th, td {
-            padding: 8px;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
+.page { display: none; padding: 28px 32px; min-height: 100vh; }
+.page.active { display: block; }
 
-        th { color: var(--text-muted); }
-        
-        .form-group {
-            margin-bottom: 15px;
-        }
-        
-        select, input {
-            background-color: var(--bg-base);
-            color: var(--text-main);
-            border: 1px solid var(--border);
-            padding: 8px;
-            border-radius: 4px;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        
-        .flash {
-            animation: highlight 1s ease-out;
-        }
-        
-        @keyframes highlight {
-            0% { background-color: var(--accent); color: #000; }
-            100% { background-color: transparent; color: var(--text-main); }
-        }
-    </style>
+.page-header { margin-bottom: 24px; }
+.page-header h2 { font-size: 22px; font-weight: 700; }
+.page-header p { color: var(--muted); margin-top: 4px; font-size: 13px; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+.card h3 { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px; }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.grid4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+
+/* ── STAT CARDS ── */
+.stat { text-align: center; }
+.stat .val { font-size: 32px; font-weight: 700; line-height: 1; }
+.stat .lbl { font-size: 11px; color: var(--muted); margin-top: 6px; text-transform: uppercase; letter-spacing: .6px; }
+
+/* ── BADGES ── */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
+}
+.badge-healthy { background: rgba(16,185,129,.15); color: var(--success); }
+.badge-degraded { background: rgba(245,158,11,.15); color: var(--warning); }
+.badge-critical { background: rgba(239,68,68,.15); color: var(--danger); }
+.badge-active  { background: rgba(59,130,246,.15); color: var(--info); }
+.badge-unknown { background: rgba(100,116,139,.15); color: var(--muted); }
+
+/* ── TRAFFIC BAR ── */
+.traffic-bar { margin: 8px 0; }
+.traffic-bar .row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.traffic-bar .label { font-size: 12px; color: var(--muted); width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.traffic-bar .bar-wrap { flex: 1; height: 10px; background: var(--bg3); border-radius: 5px; overflow: hidden; }
+.traffic-bar .bar-fill { height: 100%; border-radius: 5px; transition: width .8s ease; }
+.bar-stable { background: linear-gradient(90deg, var(--success), #059669); }
+.bar-canary { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+.traffic-bar .pct { font-size: 12px; font-weight: 600; width: 36px; text-align: right; }
+
+/* ── SCORE GAUGE ── */
+.score-gauge { text-align: center; padding: 8px 0; }
+.score-num { font-size: 48px; font-weight: 800; line-height: 1; }
+.score-num.healthy { color: var(--success); }
+.score-num.degraded { color: var(--warning); }
+.score-num.critical { color: var(--danger); }
+.score-num.unknown { color: var(--muted); }
+.score-bar-wrap { height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; margin: 10px 0 6px; }
+.score-bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+
+/* ── METRIC ROWS ── */
+.metric-row { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.metric-row:last-child { border-bottom: none; }
+.metric-row .name { flex: 1; font-size: 13px; font-weight: 500; }
+.metric-row .value { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; margin-right: 16px; }
+.metric-row .thresh { font-size: 11px; color: var(--muted); margin-right: 16px; }
+.metric-row .status-icon { font-size: 16px; }
+
+/* ── PIPELINE STEPS ── */
+.pipeline { display: flex; flex-direction: column; gap: 0; }
+.pipeline-step { display: flex; align-items: center; gap: 14px; }
+.pipeline-step .step-line { display: flex; flex-direction: column; align-items: center; }
+.pipeline-step .dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.dot-done { background: rgba(16,185,129,.2); border: 2px solid var(--success); }
+.dot-active { background: rgba(124,58,237,.2); border: 2px solid var(--accent2); animation: pulse-dot 1.5s ease-in-out infinite; }
+.dot-pending { background: var(--bg3); border: 2px solid var(--border); }
+.step-connector { width: 2px; height: 24px; background: var(--border); }
+.step-connector.done { background: var(--success); }
+.pipeline-step .step-info { padding: 4px 0 20px; }
+.pipeline-step:last-child .step-info { padding-bottom: 0; }
+.pipeline-step .step-name { font-size: 13px; font-weight: 500; }
+.pipeline-step .step-status { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* ── DECISION LOG TABLE ── */
+table.log-table { width: 100%; border-collapse: collapse; }
+table.log-table th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; padding: 8px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 500; }
+table.log-table td { padding: 10px 8px; border-bottom: 1px solid rgba(42,42,61,.5); font-size: 13px; }
+table.log-table tr:last-child td { border-bottom: none; }
+
+/* ── FAILURE LAB ── */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; }
+select, input[type=number] {
+  width: 100%; background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); padding: 9px 12px;
+  border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif;
+}
+select:focus, input:focus { outline: none; border-color: var(--accent2); }
+
+.btn-inject {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff; border: none; padding: 11px 24px;
+  border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: opacity .15s;
+}
+.btn-inject:hover { opacity: .85; }
+.btn-clear {
+  background: var(--bg3); color: var(--text); border: 1px solid var(--border);
+  padding: 11px 24px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .15s;
+}
+.btn-clear:hover { border-color: var(--muted); }
+
+.inject-status {
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  margin-top: 12px;
+}
+.inject-active { border-color: var(--danger); background: rgba(239,68,68,.05); }
+
+/* ── ARCHITECTURE FLOW ── */
+.arch-flow { display: flex; flex-direction: column; align-items: center; gap: 0; }
+.arch-node {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 20px;
+  text-align: center; font-size: 12px; font-weight: 500;
+  min-width: 160px;
+}
+.arch-arrow { color: var(--accent2); font-size: 18px; line-height: 1.2; }
+.arch-split { display: flex; gap: 20px; align-items: flex-start; }
+.arch-branch { display: flex; flex-direction: column; align-items: center; gap: 0; }
+
+/* ── RESEARCH ── */
+.comparison-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+.approach-card { padding: 20px; background: var(--bg3); border-radius: 10px; border: 1px solid var(--border); }
+.approach-card h4 { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+.approach-card ul { list-style: none; }
+.approach-card ul li { font-size: 12px; color: var(--muted); padding: 4px 0; display: flex; gap: 8px; }
+.approach-card.ours { border-color: var(--accent); background: rgba(124,58,237,.05); }
+.approach-card.ours h4 { color: var(--accent2); }
+
+.results-table { width: 100%; border-collapse: collapse; }
+.results-table th, .results-table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
+.results-table th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+
+/* ── ANIMATIONS ── */
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(168,85,247,.4); }
+  50% { box-shadow: 0 0 0 8px rgba(168,85,247,0); }
+}
+@keyframes flash-in {
+  from { background: rgba(168,85,247,.2); }
+  to { background: transparent; }
+}
+.flash { animation: flash-in .8s ease-out; }
+.dot-blink { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); margin-right: 6px; animation: pulse-dot 1s ease-in-out infinite; }
+.dot-blink.green { background: var(--success); }
+</style>
 </head>
 <body>
 
-    <h1>ReleaseGuard <span style="font-size: 1rem; color: var(--text-muted);">— Kubernetes Deployment Safety Platform</span></h1>
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="nav-logo">
+    <h1>⚡ ReleaseGuard</h1>
+    <p>Deployment Safety Platform</p>
+  </div>
 
-    <div style="margin-bottom: 20px;">
-        <a href="http://myapp.local" target="_blank" class="btn">Launch E-commerce Application ↗</a>
+  <a href="#" class="active" onclick="goPage('overview',this)"><span class="icon">🏠</span> Overview</a>
+  <a href="#" onclick="goPage('application',this)"><span class="icon">🛍</span> Application</a>
+  <a href="#" onclick="goPage('deployment',this)"><span class="icon">🚀</span> Deployment</a>
+  <a href="#" onclick="goPage('canary',this)"><span class="icon">🐦</span> Canary Live</a>
+  <a href="#" onclick="goPage('failurelab',this)"><span class="icon">🧪</span> Failure Lab</a>
+  <div class="nav-divider"></div>
+  <a href="#" onclick="goPage('policy',this)"><span class="icon">🔬</span> Policy Engine</a>
+  <a href="#" onclick="goPage('timeline',this)"><span class="icon">📋</span> Decision Log</a>
+  <a href="#" onclick="goPage('architecture',this)"><span class="icon">🏗</span> Architecture</a>
+  <a href="#" onclick="goPage('research',this)"><span class="icon">🎓</span> Research</a>
+
+  <div class="nav-external">
+    <a href="http://myapp.local" target="_blank">↗ Open MyApp Live</a>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main>
+
+<!-- ── PAGE 1: OVERVIEW ── -->
+<section class="page active" id="page-overview">
+  <div class="page-header">
+    <h2>Overview</h2>
+    <p>Live cluster and deployment status at a glance</p>
+  </div>
+
+  <div class="grid4" style="margin-bottom:16px">
+    <div class="card stat">
+      <div class="val" id="ov-nodes">—</div>
+      <div class="lbl">Nodes Ready</div>
+    </div>
+    <div class="card stat">
+      <div class="val" id="ov-pods">—</div>
+      <div class="lbl">Pods Running</div>
+    </div>
+    <div class="card stat">
+      <div class="val" id="ov-weight">—</div>
+      <div class="lbl">Canary Weight</div>
+    </div>
+    <div class="card stat">
+      <div class="val" id="ov-score" style="font-size:28px">—</div>
+      <div class="lbl">Safety Score</div>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-bottom:16px">
+    <div class="card">
+      <h3>Rollout Status</h3>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span id="ov-phase-badge" class="badge badge-unknown">Unknown</span>
+        <span id="ov-action" style="font-size:13px;color:var(--muted)">—</span>
+      </div>
+      <div style="font-size:12px;color:var(--muted)">
+        <div style="margin-bottom:4px">Stable: <span id="ov-stable-ver" style="color:var(--success);font-weight:600">—</span></div>
+        <div>Canary: <span id="ov-canary-ver" style="color:var(--accent2);font-weight:600">—</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Traffic Split</h3>
+      <div class="traffic-bar">
+        <div class="row">
+          <div class="label" id="ov-stable-lbl">Stable</div>
+          <div class="bar-wrap"><div class="bar-fill bar-stable" id="ov-stable-bar" style="width:100%"></div></div>
+          <div class="pct" id="ov-stable-pct">100%</div>
+        </div>
+        <div class="row">
+          <div class="label" id="ov-canary-lbl">Canary</div>
+          <div class="bar-wrap"><div class="bar-fill bar-canary" id="ov-canary-bar" style="width:0%"></div></div>
+          <div class="pct" id="ov-canary-pct">0%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Live Health</h3>
+    <div id="ov-metrics">Loading metrics…</div>
+  </div>
+</section>
+
+<!-- ── PAGE 2: APPLICATION ── -->
+<section class="page" id="page-application">
+  <div class="page-header">
+    <h2>Live Application</h2>
+    <p>The real production workload behind the canary pipeline</p>
+  </div>
+  <div class="grid2" style="margin-bottom:16px">
+    <div class="card">
+      <h3>Stable Version</h3>
+      <div style="font-size:28px;font-weight:700;color:var(--success)" id="app-stable-ver">—</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Serving ~<span id="app-stable-pct">100</span>% of traffic</div>
+      <a href="http://myapp.local" target="_blank" style="display:inline-block;margin-top:14px;padding:8px 16px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);border-radius:6px;color:var(--success);text-decoration:none;font-size:12px;font-weight:600">Open Stable →</a>
+    </div>
+    <div class="card">
+      <h3>Canary Version</h3>
+      <div style="font-size:28px;font-weight:700;color:var(--accent2)" id="app-canary-ver">—</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Serving ~<span id="app-canary-pct">0</span>% of traffic</div>
+      <div style="margin-top:14px;padding:8px 16px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:6px;font-size:12px;color:var(--accent2)">Under policy evaluation</div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Application Preview</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Live embed of the production application. If DNS is configured (<code style="background:var(--bg3);padding:2px 6px;border-radius:4px">myapp.local → 10.10.3.185</code> in hosts file), it will load below.</p>
+    <iframe src="http://myapp.local" style="width:100%;height:500px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)" title="MyApp Live"></iframe>
+  </div>
+</section>
+
+<!-- ── PAGE 3: DEPLOYMENT ── -->
+<section class="page" id="page-deployment">
+  <div class="page-header">
+    <h2>Deployment Pipeline</h2>
+    <p>CI/CD stages from code commit to production rollout</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>CI/CD Stages</h3>
+      <div class="pipeline" id="pipeline-steps">Loading…</div>
+    </div>
+    <div class="card">
+      <h3>Security Controls</h3>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:8px">
+          <span style="font-size:18px">🔍</span>
+          <div>
+            <div style="font-weight:600;font-size:13px">Trivy CVE Scanner</div>
+            <div style="font-size:11px;color:var(--muted)">Blocks CRITICAL/HIGH vulnerabilities</div>
+          </div>
+          <span class="badge badge-healthy" style="margin-left:auto">Active</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:8px">
+          <span style="font-size:18px">✍️</span>
+          <div>
+            <div style="font-weight:600;font-size:13px">Cosign Keyless Signing</div>
+            <div style="font-size:11px;color:var(--muted)">OIDC-based image attestation</div>
+          </div>
+          <span class="badge badge-healthy" style="margin-left:auto">Active</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:8px">
+          <span style="font-size:18px">🛡️</span>
+          <div>
+            <div style="font-weight:600;font-size:13px">Kyverno Admission</div>
+            <div style="font-size:11px;color:var(--muted)">Rejects unsigned images at cluster entry</div>
+          </div>
+          <span class="badge badge-healthy" style="margin-left:auto">Enforce</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:8px">
+          <span style="font-size:18px">📦</span>
+          <div>
+            <div style="font-weight:600;font-size:13px">Syft SBOM</div>
+            <div style="font-size:11px;color:var(--muted)">Software Bill of Materials generated per build</div>
+          </div>
+          <span class="badge badge-healthy" style="margin-left:auto">Active</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PAGE 4: CANARY LIVE ── -->
+<section class="page" id="page-canary">
+  <div class="page-header">
+    <h2>Canary Live</h2>
+    <p>Real-time rollout progress and traffic distribution</p>
+  </div>
+  <div class="grid2" style="margin-bottom:16px">
+    <div class="card">
+      <h3>Current Traffic Split</h3>
+      <div class="traffic-bar" style="margin-top:8px">
+        <div class="row">
+          <div class="label">Stable <span id="cl-stable-ver" style="color:var(--success)"></span></div>
+          <div class="bar-wrap"><div class="bar-fill bar-stable" id="cl-stable-bar" style="width:100%"></div></div>
+          <div class="pct" id="cl-stable-pct">100%</div>
+        </div>
+        <div class="row">
+          <div class="label">Canary <span id="cl-canary-ver" style="color:var(--accent2)"></span></div>
+          <div class="bar-wrap"><div class="bar-fill bar-canary" id="cl-canary-bar" style="width:0%"></div></div>
+          <div class="pct" id="cl-canary-pct">0%</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:12px">Phase: <strong id="cl-phase">—</strong> &nbsp;|&nbsp; Step: <strong id="cl-step">—</strong></div>
+    </div>
+    <div class="card">
+      <h3>Rollout Steps</h3>
+      <div id="cl-steps" style="display:flex;flex-direction:column;gap:8px;margin-top:4px">Loading…</div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>How Canary Deployment Works</h3>
+    <div style="display:flex;gap:0;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:12px;gap:4px">
+      <div style="text-align:center;padding:12px 16px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+        <div style="font-size:20px">👤👤👤👤</div><div style="font-size:11px;color:var(--muted);margin-top:4px">100% Users</div>
+      </div>
+      <div style="font-size:20px;color:var(--accent2)">→</div>
+      <div style="text-align:center;padding:12px 16px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600">Load Balancer</div><div style="font-size:11px;color:var(--muted);margin-top:4px">Argo Rollouts</div>
+      </div>
+      <div style="font-size:20px;color:var(--accent2)">→</div>
+      <div style="display:flex;gap:8px">
+        <div style="text-align:center;padding:12px 16px;background:rgba(16,185,129,.08);border-radius:8px;border:1px solid rgba(16,185,129,.3)">
+          <div style="font-size:20px">🟢</div><div style="font-size:11px;color:var(--success);font-weight:600;margin-top:4px">Stable</div><div style="font-size:10px;color:var(--muted)" id="cl-stable-pod-pct">4 Pods</div>
+        </div>
+        <div style="text-align:center;padding:12px 16px;background:rgba(124,58,237,.08);border-radius:8px;border:1px solid rgba(124,58,237,.3)">
+          <div style="font-size:20px">🟣</div><div style="font-size:11px;color:var(--accent2);font-weight:600;margin-top:4px">Canary</div><div style="font-size:10px;color:var(--muted)" id="cl-canary-pod-pct">1 Pod</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PAGE 5: FAILURE LAB ── -->
+<section class="page" id="page-failurelab">
+  <div class="page-header">
+    <h2>Failure Injection Lab</h2>
+    <p>Inject controlled failures to demonstrate automated rollback</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Inject Controls</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Target</label>
+          <select id="fi-target">
+            <option value="canary">🟣 Canary Pods (New Version)</option>
+            <option value="stable">🟢 Stable Pods ⚠️ DANGER</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Failure Type</label>
+          <select id="fi-type">
+            <option value="http_500">HTTP 500 Errors</option>
+            <option value="latency">High Latency</option>
+            <option value="cpu_stress">CPU Stress</option>
+            <option value="memory_stress">Memory Stress</option>
+            <option value="crash">Application Crash</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Intensity</label>
+          <select id="fi-intensity">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Duration (seconds)</label>
+          <input type="number" id="fi-duration" value="120" min="10" max="600">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button class="btn-inject" onclick="startInjection()">▶ Start Injection</button>
+        <button class="btn-clear" onclick="clearInjection()">✕ Clear</button>
+      </div>
     </div>
 
-    <div class="dashboard-container">
-        <!-- Live Status Panel -->
-        <div class="panel">
-            <h2>Live Pipeline Status</h2>
-            <div id="status-panel">Loading...</div>
+    <div class="card">
+      <h3>Active Injection Status</h3>
+      <div id="fi-status-display" class="inject-status">
+        <span style="color:var(--muted)">● No active injections</span>
+      </div>
+      <div style="margin-top:16px">
+        <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">What Happens Next</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.8">
+          1. Failure starts on the <strong>selected target</strong><br>
+          2. Prometheus detects metric degradation<br>
+          3. Policy Engine evaluates SLI rules every 15s<br>
+          4. Safety score drops below threshold<br>
+          5. Decision Engine triggers <strong style="color:var(--danger)">ROLLBACK</strong><br>
+          6. Argo Rollouts routes 100% traffic to stable<br>
+          7. Recovery Verifier confirms system is healthy
         </div>
-
-        <!-- Version Panel -->
-        <div class="panel">
-            <h2>Version Check</h2>
-            <div id="version-panel" style="font-size: 1.5rem; font-weight: bold; padding: 10px 0;">
-                <span id="ver-stable" style="color: var(--success);">Stable: Loading...</span> | 
-                <span id="ver-canary" style="color: var(--warning);">Canary: Loading...</span>
-            </div>
-        </div>
-
-        <!-- Decision Log Panel -->
-        <div class="panel" style="grid-column: span 2;">
-            <h2>Policy Engine Audit Log</h2>
-            <table id="decisions-table">
-                <thead>
-                    <tr>
-                        <th>Time</th>
-                        <th>Score</th>
-                        <th>Action</th>
-                        <th>Reason</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr><td colspan="4">Loading...</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Failure Injection Lab -->
-        <div class="panel" style="grid-column: span 2;">
-            <h2>Failure Injection Lab</h2>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <div>
-                    <div class="form-group">
-                        <label>Target</label>
-                        <select id="inj-target">
-                            <option value="canary" selected>Canary Pods (New Version)</option>
-                            <option value="stable">Stable Pods (DANGER)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Failure Type</label>
-                        <select id="inj-type">
-                            <option value="http_500">HTTP 500 Errors</option>
-                            <option value="latency">High Latency</option>
-                            <option value="cpu_stress">CPU Stress</option>
-                            <option value="memory_stress">Memory Stress</option>
-                            <option value="crash">Crash Pod</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <div class="form-group">
-                        <label>Intensity</label>
-                        <select id="inj-intensity">
-                            <option value="low">Low</option>
-                            <option value="medium">Medium</option>
-                            <option value="high">High</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Duration (Seconds)</label>
-                        <input type="number" id="inj-duration" value="60">
-                    </div>
-                </div>
-            </div>
-            
-            <div style="margin-top: 15px; display: flex; gap: 10px; align-items: center;">
-                <button class="btn btn-danger" onclick="startInjection()">Start Injection</button>
-                <button class="btn btn-secondary" onclick="clearInjection()">Clear Injection</button>
-                <span id="inj-status-text" style="color: var(--warning); margin-left: auto;"></span>
-            </div>
-        </div>
+      </div>
     </div>
+  </div>
+</section>
 
-    <script>
-        let lastStable = null;
-        let lastCanary = null;
+<!-- ── PAGE 6: POLICY ENGINE ── -->
+<section class="page" id="page-policy">
+  <div class="page-header">
+    <h2>Policy Engine</h2>
+    <p>Live metric evaluation and safety scoring</p>
+  </div>
+  <div class="grid2" style="margin-bottom:16px">
+    <div class="card">
+      <h3>Safety Score</h3>
+      <div class="score-gauge">
+        <div class="score-num healthy" id="pe-score">—</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">/ 100</div>
+        <div class="score-bar-wrap">
+          <div class="score-bar-fill" id="pe-score-bar" style="width:0%;background:var(--success)"></div>
+        </div>
+        <span class="badge" id="pe-class-badge">Unknown</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Decision</h3>
+      <div style="text-align:center;padding:20px 0">
+        <div id="pe-decision" style="font-size:36px;font-weight:800;letter-spacing:-1px">—</div>
+        <div style="margin-top:10px;display:flex;justify-content:center;gap:16px">
+          <div style="font-size:12px"><span style="color:var(--warning)">●</span> Warnings: <strong id="pe-warnings">0</strong></div>
+          <div style="font-size:12px"><span style="color:var(--danger)">●</span> Critical: <strong id="pe-criticals">0</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>SLI Rule Evaluation</h3>
+    <div id="pe-rules">Loading…</div>
+  </div>
+</section>
 
-        // Poll Status (every 3s)
-        setInterval(async () => {
-            try {
-                const res = await fetch('/api/status');
-                const data = await res.json();
-                
-                const cls = data.classification !== 'unknown' ? `status-${data.classification}` : '';
-                const score = data.score !== null ? `${data.score}/100` : 'N/A';
-                let html = `
-                    <p><strong>Phase:</strong> ${data.rollout.phase || 'unknown'}</p>
-                    <p><strong>Current Step:</strong> ${data.rollout.step_index ?? 'N/A'}</p>
-                    <p><strong>Canary Weight:</strong> ${data.rollout.weight ?? 0}%</p>
-                    <p><strong>Safety Score:</strong> <span class="status-indicator ${cls}">${score}</span></p>
-                    <p><strong>Action:</strong> <span style="text-transform: uppercase;">${data.action}</span></p>
-                    ${data.rollout.error ? `<p style="color: var(--danger); font-size: 0.8rem;">⚠ Rollout error: ${data.rollout.error}</p>` : ''}
-                `;
-                document.getElementById('status-panel').innerHTML = html;
-            } catch(e) {
-                document.getElementById('status-panel').innerHTML = '<p style="color: var(--danger);">⚠ Failed to connect to backend</p>';
-            }
-        }, 3000);
+<!-- ── PAGE 7: DECISION TIMELINE ── -->
+<section class="page" id="page-timeline">
+  <div class="page-header">
+    <h2>Decision Log</h2>
+    <p>Chronological audit trail from PostgreSQL</p>
+  </div>
+  <div class="card">
+    <table class="log-table">
+      <thead>
+        <tr><th>Time</th><th>Score</th><th>Action</th><th>Warnings</th><th>Criticals</th><th>Reason</th></tr>
+      </thead>
+      <tbody id="tl-tbody">
+        <tr><td colspan="6" style="color:var(--muted);text-align:center;padding:24px">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
 
-        // Poll Versions (every 2s)
-        setInterval(async () => {
-            try {
-                const res = await fetch('/api/version-check');
-                const data = await res.json();
-                
-                const elStable = document.getElementById('ver-stable');
-                const elCanary = document.getElementById('ver-canary');
-                
-                if (lastStable && lastStable !== data.stable) {
-                    elStable.classList.remove('flash');
-                    void elStable.offsetWidth; // trigger reflow
-                    elStable.classList.add('flash');
-                }
-                if (lastCanary && lastCanary !== data.canary) {
-                    elCanary.classList.remove('flash');
-                    void elCanary.offsetWidth; // trigger reflow
-                    elCanary.classList.add('flash');
-                }
-                
-                elStable.innerText = `Stable: v${data.stable}`;
-                elCanary.innerText = `Canary: v${data.canary}`;
-                
-                lastStable = data.stable;
-                lastCanary = data.canary;
-            } catch(e) {
-                console.error(e);
-            }
-        }, 2000);
+<!-- ── PAGE 8: ARCHITECTURE ── -->
+<section class="page" id="page-architecture">
+  <div class="page-header">
+    <h2>System Architecture</h2>
+    <p>How every component connects</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>CI/CD → Cluster</h3>
+      <div class="arch-flow" style="margin-top:8px">
+        <div class="arch-node" style="border-color:var(--accent2)">👨‍💻 Developer Push</div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-node">⚙️ GitHub Actions</div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-node">🔍 Trivy + ✍️ Cosign + 📦 SBOM</div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-node">📦 GHCR Registry</div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-node">🔄 Argo CD (GitOps)</div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-node" style="border-color:var(--success)">🚀 Argo Rollouts (Canary)</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Policy Engine Loop</h3>
+      <div class="arch-flow" style="margin-top:8px">
+        <div class="arch-node" style="border-color:var(--success)">🚀 Argo Rollouts</div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-node">📊 Prometheus Metrics</div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-node">🔬 Metrics Collector (5 SLIs)</div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-node">📏 Rules Engine (Warning/Critical)</div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-node">🎯 Safety Scoring (0–100)</div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-node">🧠 Decision Engine</div>
+        <div class="arch-arrow">↓</div>
+        <div style="display:flex;gap:8px;margin:4px 0">
+          <div class="arch-node" style="border-color:var(--success);font-size:11px;min-width:80px">✅ PROMOTE</div>
+          <div class="arch-node" style="border-color:var(--warning);font-size:11px;min-width:80px">⏸ HOLD</div>
+          <div class="arch-node" style="border-color:var(--danger);font-size:11px;min-width:80px">🔴 ABORT</div>
+        </div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-node">🔍 Recovery Verifier</div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-node" style="border-color:var(--info)">🗄️ PostgreSQL Audit Log</div>
+      </div>
+    </div>
+  </div>
+</section>
 
-        // Poll Decisions (every 5s)
-        setInterval(async () => {
-            try {
-                const res = await fetch('/api/decisions?limit=5');
-                const data = await res.json();
-                
-                const tbody = document.querySelector('#decisions-table tbody');
-                tbody.innerHTML = '';
-                
-                data.decisions.forEach(d => {
-                    let date = new Date(d.timestamp).toLocaleTimeString();
-                    let actionColor = d.action === 'abort' ? 'var(--danger)' : (d.action === 'promote' ? 'var(--success)' : 'var(--warning)');
-                    tbody.innerHTML += `
-                        <tr>
-                            <td>${date}</td>
-                            <td>${d.score}</td>
-                            <td style="color: ${actionColor}; font-weight: bold;">${d.action.toUpperCase()}</td>
-                            <td>${d.reason}</td>
-                        </tr>
-                    `;
-                });
-            } catch(e) {
-                console.error(e);
-            }
-        }, 5000);
+<!-- ── PAGE 9: RESEARCH ── -->
+<section class="page" id="page-research">
+  <div class="page-header">
+    <h2>Research & Innovation</h2>
+    <p>What makes this framework different and measured results</p>
+  </div>
 
-        // Poll Injection Status (every 2s)
-        setInterval(async () => {
-            try {
-                const res = await fetch('/api/inject/status');
-                const data = await res.json();
-                
-                let s = "";
-                if (data.canary && data.canary.fail_rate > 0) s += `[Canary: Failing ${data.canary.fail_rate*100}%] `;
-                if (data.canary && data.canary.extra_latency_ms > 0) s += `[Canary: Latency ${data.canary.extra_latency_ms}ms] `;
-                
-                if (data.stable && data.stable.fail_rate > 0) s += `[Stable: Failing ${data.stable.fail_rate*100}%] `;
-                if (data.stable && data.stable.extra_latency_ms > 0) s += `[Stable: Latency ${data.stable.extra_latency_ms}ms] `;
-                
-                document.getElementById('inj-status-text').innerText = s ? "Active Injections: " + s : "No active injections.";
-            } catch(e) {
-                console.error(e);
-            }
-        }, 2000);
+  <div class="comparison-grid" style="margin-bottom:20px">
+    <div class="approach-card">
+      <h4>🏛️ Traditional Deployment</h4>
+      <ul>
+        <li><span>→</span> Deploy all at once</li>
+        <li><span>→</span> Monitor manually</li>
+        <li><span>→</span> Human detects failure</li>
+        <li><span>→</span> Manual rollback</li>
+        <li style="color:var(--danger)"><span>✗</span> High blast radius</li>
+        <li style="color:var(--danger)"><span>✗</span> Slow reaction time</li>
+      </ul>
+    </div>
+    <div class="approach-card">
+      <h4>📦 Progressive Delivery</h4>
+      <ul>
+        <li><span>→</span> Canary traffic split</li>
+        <li><span>→</span> Automated rollout</li>
+        <li><span>→</span> Basic health checks</li>
+        <li style="color:var(--warning)"><span>~</span> Limited policy logic</li>
+        <li style="color:var(--warning)"><span>~</span> No scoring model</li>
+        <li style="color:var(--danger)"><span>✗</span> No recovery verification</li>
+      </ul>
+    </div>
+    <div class="approach-card ours">
+      <h4>⚡ Our Framework (ReleaseGuard)</h4>
+      <ul>
+        <li><span style="color:var(--success)">✓</span> Multi-SLI canary policy</li>
+        <li><span style="color:var(--success)">✓</span> Consecutive violation logic</li>
+        <li><span style="color:var(--success)">✓</span> Numerical safety scoring</li>
+        <li><span style="color:var(--success)">✓</span> Explainable decisions</li>
+        <li><span style="color:var(--success)">✓</span> Controlled failure injection</li>
+        <li><span style="color:var(--success)">✓</span> Automated recovery + verification</li>
+        <li><span style="color:var(--success)">✓</span> Immutable PostgreSQL audit trail</li>
+      </ul>
+    </div>
+  </div>
 
-        async function startInjection() {
-            const target = document.getElementById('inj-target').value;
-            if (target === 'stable') {
-                if (!confirm("WARNING: You are about to inject a failure into the STABLE pods. This will affect real users and test the recovery verifier, but it violates canary isolation principles. Proceed?")) {
-                    return;
-                }
-            } else {
-                if (!confirm("Inject failure into CANARY pods?")) {
-                    return;
-                }
-            }
-            
-            const payload = {
-                target: target,
-                type: document.getElementById('inj-type').value,
-                intensity: document.getElementById('inj-intensity').value,
-                duration_seconds: parseInt(document.getElementById('inj-duration').value)
-            };
-            
-            await fetch('/api/inject', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
-        }
+  <div class="card" style="margin-bottom:16px">
+    <h3>Measured Evaluation Results</h3>
+    <table class="results-table">
+      <thead>
+        <tr><th>Scenario</th><th>Peak Error Rate</th><th>Peak P95 Latency</th><th>Time to Detect</th><th>Time to Recover</th><th>Outcome</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>A: Baseline (direct deploy)</td><td>0%</td><td>~5ms</td><td>N/A</td><td>N/A</td><td><span class="badge badge-healthy">Pass</span></td></tr>
+        <tr><td>B: Healthy Canary</td><td>0%</td><td>~5ms</td><td>N/A</td><td>N/A</td><td><span class="badge badge-healthy">Promoted</span></td></tr>
+        <tr><td>C: Bad Canary (50% error)</td><td>37.4%</td><td>~5ms</td><td>~3 min</td><td>66s</td><td><span class="badge badge-critical">Auto-Rollback</span></td></tr>
+        <tr><td>D: Noisy Canary (latency)</td><td>~17.1%</td><td>~2244ms</td><td>~2 min</td><td>276s</td><td><span class="badge badge-critical">Auto-Rollback</span></td></tr>
+      </tbody>
+    </table>
+  </div>
 
-        async function clearInjection() {
-            await fetch('/api/inject/clear', {method: 'POST'});
-        }
-    </script>
+  <div class="grid2">
+    <div class="card">
+      <h3>Key Engineering Findings</h3>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+        <div style="padding:10px;background:var(--bg3);border-radius:8px;border-left:3px solid var(--accent2)">
+          <div style="font-size:12px;font-weight:600">Grace-Period Fix (Phase 9)</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">20s pause after each step weight increase prevents false-positive rollbacks during pod startup churn.</div>
+        </div>
+        <div style="padding:10px;background:var(--bg3);border-radius:8px;border-left:3px solid var(--accent2)">
+          <div style="font-size:12px;font-weight:600">Fault Isolation Bug (Phase 10b)</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Shared ConfigMap injection affected stable pods. Fixed by baking failure into image tags and using separate stable/canary Services.</div>
+        </div>
+        <div style="padding:10px;background:var(--bg3);border-radius:8px;border-left:3px solid var(--accent2)">
+          <div style="font-size:12px;font-weight:600">Metric Window Mismatch (Phase 12)</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">P95 latency uses 5m window vs 1m for error rate. Recovery verifier timeout was dynamically extended to 360s to account for this.</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Security Hardening</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+        <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg3);border-radius:6px;font-size:12px">
+          <span>Trivy CVE Scan (blocking)</span><span class="badge badge-healthy">Active</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg3);border-radius:6px;font-size:12px">
+          <span>Cosign Keyless OIDC Signing</span><span class="badge badge-healthy">Active</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg3);border-radius:6px;font-size:12px">
+          <span>Kyverno Signature Enforcement</span><span class="badge badge-healthy">Enforce</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg3);border-radius:6px;font-size:12px">
+          <span>NetworkPolicy (default-deny)</span><span class="badge badge-healthy">Active</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg3);border-radius:6px;font-size:12px">
+          <span>Falco Runtime Detection</span><span class="badge badge-active">Partial</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg3);border-radius:6px;font-size:12px">
+          <span>Least-Privilege RBAC</span><span class="badge badge-healthy">Active</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+// ── ROUTING ──────────────────────────────────
+function goPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#sidebar a').forEach(a => a.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (el) el.classList.add('active');
+}
+
+// ── HELPERS ──────────────────────────────────
+function actionColor(a) {
+  if (!a) return 'var(--muted)';
+  const u = a.toUpperCase();
+  if (u === 'PROMOTE') return 'var(--success)';
+  if (u === 'ABORT' || u === 'ROLLBACK') return 'var(--danger)';
+  if (u === 'HOLD') return 'var(--warning)';
+  return 'var(--muted)';
+}
+
+function classColor(c) {
+  if (c === 'healthy') return 'var(--success)';
+  if (c === 'degraded') return 'var(--warning)';
+  if (c === 'critical') return 'var(--danger)';
+  return 'var(--muted)';
+}
+
+function badgeClass(c) {
+  if (c === 'healthy') return 'badge-healthy';
+  if (c === 'degraded') return 'badge-degraded';
+  if (c === 'critical') return 'badge-critical';
+  if (c === 'active' || c === 'Progressing' || c === 'Paused') return 'badge-active';
+  return 'badge-unknown';
+}
+
+// ── POLL: STATUS (3s) ────────────────────────
+let lastStable = null, lastCanary = null;
+
+async function pollStatus() {
+  try {
+    const [s, v] = await Promise.all([fetch('/api/status'), fetch('/api/version-check')]);
+    const sd = await s.json();
+    const vd = await v.json();
+
+    const weight = sd.rollout?.weight ?? 0;
+    const stableW = 100 - weight;
+
+    // Overview
+    document.getElementById('ov-weight').textContent = weight + '%';
+    const sc = sd.score;
+    const scEl = document.getElementById('ov-score');
+    scEl.textContent = sc !== null ? sc : '—';
+    scEl.style.color = sc >= 80 ? 'var(--success)' : sc >= 50 ? 'var(--warning)' : 'var(--danger)';
+
+    const badge = document.getElementById('ov-phase-badge');
+    badge.textContent = sd.rollout?.phase ?? 'unknown';
+    badge.className = 'badge ' + badgeClass(sd.rollout?.phase);
+
+    const actionEl = document.getElementById('ov-action');
+    actionEl.textContent = sd.action ?? '—';
+    actionEl.style.color = actionColor(sd.action);
+
+    ['ov-stable-bar','cl-stable-bar'].forEach(id => { const el = document.getElementById(id); if(el) el.style.width = stableW + '%'; });
+    ['ov-canary-bar','cl-canary-bar'].forEach(id => { const el = document.getElementById(id); if(el) el.style.width = weight + '%'; });
+    ['ov-stable-pct','cl-stable-pct'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = stableW + '%'; });
+    ['ov-canary-pct','cl-canary-pct'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = weight + '%'; });
+
+    document.getElementById('cl-phase').textContent = sd.rollout?.phase ?? '—';
+    document.getElementById('cl-step').textContent = sd.rollout?.step_index ?? 'N/A';
+
+    // Version check
+    const sv = vd.stable ?? 'unknown', cv = vd.canary ?? 'unknown';
+    if (lastStable && lastStable !== sv) { ['ov-stable-ver','app-stable-ver'].forEach(id => { const el = document.getElementById(id); if(el){el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');}}); }
+    if (lastCanary && lastCanary !== cv) { ['ov-canary-ver','app-canary-ver'].forEach(id => { const el = document.getElementById(id); if(el){el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');}}); }
+    lastStable = sv; lastCanary = cv;
+
+    ['ov-stable-ver','app-stable-ver'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = 'v'+sv; });
+    ['ov-canary-ver','app-canary-ver'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = 'v'+cv; });
+    ['ov-stable-lbl','cl-stable-ver'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = 'Stable v'+sv; });
+    ['ov-canary-lbl','cl-canary-ver'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = 'Canary v'+cv; });
+
+    const spEl = document.getElementById('app-stable-pct'); if(spEl) spEl.textContent = stableW;
+    const cpEl = document.getElementById('app-canary-pct'); if(cpEl) cpEl.textContent = weight;
+
+    // Canary rollout steps
+    const steps = [10, 25, 50, 90, 100];
+    const clSteps = document.getElementById('cl-steps');
+    if (clSteps) {
+      clSteps.innerHTML = steps.map(w => {
+        const done = weight >= w;
+        const cur = weight === w;
+        const color = done ? 'var(--success)' : cur ? 'var(--accent2)' : 'var(--border)';
+        const icon = done ? '✓' : cur ? '▶' : '○';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border-radius:6px;border-left:3px solid ${color}">
+          <span style="color:${color};font-weight:700">${icon}</span>
+          <span style="font-size:13px;font-weight:600">${w}% Canary Traffic</span>
+          ${done ? '<span class="badge badge-healthy" style="margin-left:auto">Done</span>' : cur ? '<span class="badge badge-active" style="margin-left:auto">Active</span>' : ''}
+        </div>`;
+      }).join('');
+    }
+
+  } catch(e) { console.error('status poll error', e); }
+}
+
+// ── POLL: CLUSTER (10s) ──────────────────────
+async function pollCluster() {
+  try {
+    const r = await fetch('/api/cluster');
+    const d = await r.json();
+    const nodesEl = document.getElementById('ov-nodes');
+    if (nodesEl) nodesEl.textContent = `${d.nodes_ready}/${d.nodes_total}`;
+    const podsEl = document.getElementById('ov-pods');
+    if (podsEl) podsEl.textContent = `${d.pods_running}/${d.pods_total}`;
+  } catch(e) {}
+}
+
+// ── POLL: METRICS (5s) ──────────────────────
+async function pollMetrics() {
+  try {
+    const r = await fetch('/api/metrics');
+    const d = await r.json();
+
+    // Overview mini-metrics
+    const ovMetrics = document.getElementById('ov-metrics');
+    if (ovMetrics && d.rules) {
+      ovMetrics.innerHTML = `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">` +
+        d.rules.map(rule => `
+          <div style="text-align:center;padding:10px;background:var(--bg3);border-radius:8px;border-top:2px solid ${rule.status === 'pass' ? 'var(--success)' : 'var(--danger)'}">
+            <div style="font-size:16px">${rule.status === 'pass' ? '✅' : '❌'}</div>
+            <div style="font-size:13px;font-weight:600;margin-top:4px">${rule.value}</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px">${rule.name}</div>
+          </div>`).join('') + `</div>`;
+    }
+
+    // Policy engine page
+    const scoreEl = document.getElementById('pe-score');
+    const sc = d.score;
+    if (scoreEl) {
+      scoreEl.textContent = sc !== null ? sc : '—';
+      scoreEl.className = 'score-num ' + (d.classification ?? 'unknown');
+    }
+    const barEl = document.getElementById('pe-score-bar');
+    if (barEl) {
+      barEl.style.width = (sc ?? 0) + '%';
+      barEl.style.background = sc >= 80 ? 'var(--success)' : sc >= 50 ? 'var(--warning)' : 'var(--danger)';
+    }
+    const classBadge = document.getElementById('pe-class-badge');
+    if (classBadge) { classBadge.textContent = d.classification ?? 'unknown'; classBadge.className = 'badge ' + badgeClass(d.classification); }
+
+    const decEl = document.getElementById('pe-decision');
+    const action = sc >= 80 ? 'PROMOTE' : sc >= 50 ? 'HOLD' : 'ABORT';
+    if (decEl) { decEl.textContent = action; decEl.style.color = actionColor(action); }
+    const wEl = document.getElementById('pe-warnings'); if(wEl) wEl.textContent = d.warnings ?? 0;
+    const cEl = document.getElementById('pe-criticals'); if(cEl) cEl.textContent = d.criticals ?? 0;
+
+    const rulesEl = document.getElementById('pe-rules');
+    if (rulesEl && d.rules) {
+      rulesEl.innerHTML = d.rules.map(rule => `
+        <div class="metric-row">
+          <span class="name">${rule.name}</span>
+          <span class="thresh">${rule.threshold}</span>
+          <span class="value" style="color:${rule.status==='pass'?'var(--success)':'var(--danger)'}">${rule.value}</span>
+          <span class="status-icon">${rule.status === 'pass' ? '✅' : '❌'}</span>
+        </div>`).join('');
+    }
+  } catch(e) { console.error('metrics poll error', e); }
+}
+
+// ── POLL: DECISIONS (5s) ─────────────────────
+async function pollDecisions() {
+  try {
+    const r = await fetch('/api/decisions?limit=20');
+    const d = await r.json();
+    const tbody = document.getElementById('tl-tbody');
+    if (!tbody) return;
+    if (!d.decisions || d.decisions.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:24px">No decisions yet. Start the policy engine watch loop to generate entries.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.decisions.map(row => {
+      const t = row.timestamp ? new Date(row.timestamp).toLocaleTimeString() : '—';
+      const action = (row.action || 'none').toUpperCase();
+      const color = actionColor(action);
+      return `<tr>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:12px">${t}</td>
+        <td>${row.score !== null ? row.score : '—'}</td>
+        <td style="color:${color};font-weight:700">${action}</td>
+        <td>—</td><td>—</td>
+        <td style="color:var(--muted);font-size:12px">${row.reason ?? '—'}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {}
+}
+
+// ── POLL: PIPELINE (10s) ─────────────────────
+async function pollPipeline() {
+  try {
+    const r = await fetch('/api/pipeline');
+    const d = await r.json();
+    const el = document.getElementById('pipeline-steps');
+    if (!el || !d.steps) return;
+    el.innerHTML = d.steps.map((step, i) => {
+      const cls = step.status === 'done' ? 'dot-done' : step.status === 'active' ? 'dot-active' : 'dot-pending';
+      const icon = step.status === 'done' ? '✓' : step.status === 'active' ? '▶' : '○';
+      const last = i === d.steps.length - 1;
+      return `<div class="pipeline-step">
+        <div class="step-line">
+          <div class="dot ${cls}">${icon}</div>
+          ${!last ? `<div class="step-connector ${step.status === 'done' ? 'done' : ''}"></div>` : ''}
+        </div>
+        <div class="step-info">
+          <div class="step-name">${step.name}</div>
+          <div class="step-status">${step.status === 'done' ? 'Completed' : step.status === 'active' ? '● In Progress' : 'Pending'}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+// ── POLL: INJECT STATUS (2s) ─────────────────
+async function pollInjectStatus() {
+  try {
+    const r = await fetch('/api/inject/status');
+    const d = await r.json();
+    const el = document.getElementById('fi-status-display');
+    if (!el) return;
+
+    const lines = [];
+    if (d.canary?.fail_rate > 0) lines.push(`<div><span class="dot-blink"></span> Canary: HTTP 500 @ ${(d.canary.fail_rate*100).toFixed(0)}% rate</div>`);
+    if (d.canary?.extra_latency_ms > 0) lines.push(`<div><span class="dot-blink"></span> Canary: +${d.canary.extra_latency_ms}ms latency</div>`);
+    if (d.stable?.fail_rate > 0) lines.push(`<div><span class="dot-blink"></span> Stable: HTTP 500 @ ${(d.stable.fail_rate*100).toFixed(0)}%</div>`);
+    if (d.stable?.extra_latency_ms > 0) lines.push(`<div><span class="dot-blink"></span> Stable: +${d.stable.extra_latency_ms}ms latency</div>`);
+
+    if (lines.length > 0) {
+      el.className = 'inject-status inject-active';
+      el.innerHTML = `<div style="font-weight:600;color:var(--danger);margin-bottom:8px">⚡ FAILURE ACTIVE</div>` + lines.join('');
+    } else {
+      el.className = 'inject-status';
+      el.innerHTML = `<span style="color:var(--muted)"><span class="dot-blink green"></span> No active injections</span>`;
+    }
+  } catch(e) {}
+}
+
+// ── INJECTION ACTIONS ────────────────────────
+async function startInjection() {
+  const target = document.getElementById('fi-target').value;
+  const type = document.getElementById('fi-type').value;
+  const intensity = document.getElementById('fi-intensity').value;
+  const duration = parseInt(document.getElementById('fi-duration').value);
+
+  if (target === 'stable') {
+    if (!confirm('⚠️ WARNING: You are injecting a failure into STABLE pods. Real users will be affected. This is only for demonstrating the contrast with canary isolation. Proceed?')) return;
+  } else {
+    if (!confirm(`Inject "${type}" failure into CANARY pods for ${duration}s?`)) return;
+  }
+
+  try {
+    const r = await fetch('/api/inject', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({target, type, intensity, duration_seconds: duration})
+    });
+    if (r.ok) {
+      pollInjectStatus();
+    } else {
+      alert('Injection failed: ' + (await r.text()));
+    }
+  } catch(e) { alert('Network error: ' + e); }
+}
+
+async function clearInjection() {
+  await fetch('/api/inject/clear', {method: 'POST'});
+  pollInjectStatus();
+}
+
+// ── START ALL POLLERS ────────────────────────
+pollStatus(); pollCluster(); pollMetrics(); pollDecisions(); pollPipeline(); pollInjectStatus();
+
+setInterval(pollStatus, 3000);
+setInterval(pollCluster, 10000);
+setInterval(pollMetrics, 5000);
+setInterval(pollDecisions, 5000);
+setInterval(pollPipeline, 10000);
+setInterval(pollInjectStatus, 2000);
+</script>
 </body>
 </html>

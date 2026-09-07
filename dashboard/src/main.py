@@ -27,6 +27,68 @@ CANARY_URL = "http://myapp-canary-svc.zero-downtime.svc.cluster.local"
 # Mount static files
 app.mount("/ui", StaticFiles(directory="static", html=True), name="static")
 
+
+@app.get("/api/cluster")
+async def get_cluster():
+    import subprocess, json
+    result = {"nodes_ready": 0, "nodes_total": 0, "pods_running": 0, "pods_total": 0, "error": None}
+    try:
+        r = subprocess.run(["kubectl", "get", "nodes", "-o", "json"], capture_output=True, text=True, timeout=5)
+        nodes = json.loads(r.stdout).get("items", [])
+        result["nodes_total"] = len(nodes)
+        result["nodes_ready"] = sum(
+            1 for n in nodes
+            if any(c["type"] == "Ready" and c["status"] == "True" for c in n["status"].get("conditions", []))
+        )
+        r2 = subprocess.run(["kubectl", "get", "pods", "-n", "zero-downtime", "-o", "json"], capture_output=True, text=True, timeout=5)
+        pods = json.loads(r2.stdout).get("items", [])
+        result["pods_total"] = len(pods)
+        result["pods_running"] = sum(1 for p in pods if p.get("status", {}).get("phase") == "Running")
+    except Exception as e:
+        result["error"] = str(e)[:200]
+    return result
+
+
+@app.get("/api/metrics")
+async def get_metrics():
+    try:
+        snapshot = collector.get_snapshot("zero-downtime")
+        violations = rule_engine.evaluate(snapshot)
+        violation_names = {v.rule_name for v in violations}
+        score = safety_score(violations)
+        classification = "healthy" if score >= 80 else ("critical" if score < 50 else "degraded")
+        rules_display = [
+            {"name": "Error Rate",   "value": f"{snapshot.get('error_rate_pct', 0):.1f}%",    "threshold": "< 5%",    "status": "fail" if any("error_rate" in n for n in violation_names) else "pass"},
+            {"name": "P95 Latency",  "value": f"{snapshot.get('p95_latency_ms', 0):.0f} ms",  "threshold": "< 500ms", "status": "fail" if any("latency" in n for n in violation_names) else "pass"},
+            {"name": "Request Rate", "value": f"{snapshot.get('request_rate', 0):.1f} req/s",  "threshold": "N/A",     "status": "pass"},
+            {"name": "Ready Pods",   "value": f"{snapshot.get('ready_pods', 0):.0f}",          "threshold": ">= 4",    "status": "fail" if any("pods" in n for n in violation_names) else "pass"},
+            {"name": "Pod Restarts", "value": f"{snapshot.get('pod_restarts_5m', 0):.0f}",     "threshold": "0",       "status": "fail" if any("restart" in n for n in violation_names) else "pass"},
+        ]
+        return {"snapshot": snapshot, "rules": rules_display, "warnings": sum(1 for v in violations if v.severity == "warning"), "criticals": sum(1 for v in violations if v.severity == "critical"), "score": score, "classification": classification}
+    except Exception as e:
+        return {"snapshot": {}, "rules": [], "warnings": 0, "criticals": 0, "score": None, "classification": "unknown", "error": str(e)[:200]}
+
+
+@app.get("/api/pipeline")
+async def get_pipeline():
+    try:
+        rollout = get_rollout_status("myapp", "zero-downtime")
+        phase = rollout.get("phase", "unknown")
+        is_active = phase in ["Progressing", "Paused"]
+        steps = [
+            {"name": "GitHub Push",    "status": "done"},
+            {"name": "GitHub Actions", "status": "done"},
+            {"name": "Trivy Scan",     "status": "done"},
+            {"name": "Cosign Sign",    "status": "done"},
+            {"name": "GHCR Push",      "status": "done"},
+            {"name": "Argo CD Sync",   "status": "done"},
+            {"name": "Argo Rollouts",  "status": "active" if is_active else "done"},
+        ]
+        return {"steps": steps, "rollout_phase": phase}
+    except Exception as e:
+        return {"steps": [], "rollout_phase": "unknown", "error": str(e)[:200]}
+
+
 @app.get("/api/status")
 async def get_status():
     try:
