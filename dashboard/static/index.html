@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReleaseGuard — Kubernetes Deployment Safety Platform</title>
+    <style>
+        :root {
+            --bg-base: #121212;
+            --bg-panel: #1e1e1e;
+            --text-main: #e0e0e0;
+            --text-muted: #a0a0a0;
+            --accent: #bb86fc;
+            --success: #03dac6;
+            --warning: #ffb74d;
+            --danger: #cf6679;
+            --border: #333333;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 10px;
+            color: var(--accent);
+        }
+
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .panel h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: var(--accent);
+        }
+
+        .status-indicator {
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .status-healthy { background-color: rgba(3, 218, 198, 0.2); color: var(--success); }
+        .status-degraded { background-color: rgba(255, 183, 77, 0.2); color: var(--warning); }
+        .status-critical { background-color: rgba(207, 102, 121, 0.2); color: var(--danger); }
+
+        .btn {
+            background-color: var(--accent);
+            color: #000;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+        }
+        
+        .btn-danger {
+            background-color: var(--danger);
+            color: #fff;
+        }
+        
+        .btn-secondary {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th { color: var(--text-muted); }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        select, input {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 8px;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .flash {
+            animation: highlight 1s ease-out;
+        }
+        
+        @keyframes highlight {
+            0% { background-color: var(--accent); color: #000; }
+            100% { background-color: transparent; color: var(--text-main); }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>ReleaseGuard <span style="font-size: 1rem; color: var(--text-muted);">— Kubernetes Deployment Safety Platform</span></h1>
+
+    <div style="margin-bottom: 20px;">
+        <a href="http://myapp.local" target="_blank" class="btn">Launch E-commerce Application ↗</a>
+    </div>
+
+    <div class="dashboard-container">
+        <!-- Live Status Panel -->
+        <div class="panel">
+            <h2>Live Pipeline Status</h2>
+            <div id="status-panel">Loading...</div>
+        </div>
+
+        <!-- Version Panel -->
+        <div class="panel">
+            <h2>Version Check</h2>
+            <div id="version-panel" style="font-size: 1.5rem; font-weight: bold; padding: 10px 0;">
+                <span id="ver-stable" style="color: var(--success);">Stable: Loading...</span> | 
+                <span id="ver-canary" style="color: var(--warning);">Canary: Loading...</span>
+            </div>
+        </div>
+
+        <!-- Decision Log Panel -->
+        <div class="panel" style="grid-column: span 2;">
+            <h2>Policy Engine Audit Log</h2>
+            <table id="decisions-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Score</th>
+                        <th>Action</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="4">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Failure Injection Lab -->
+        <div class="panel" style="grid-column: span 2;">
+            <h2>Failure Injection Lab</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <div class="form-group">
+                        <label>Target</label>
+                        <select id="inj-target">
+                            <option value="canary" selected>Canary Pods (New Version)</option>
+                            <option value="stable">Stable Pods (DANGER)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Failure Type</label>
+                        <select id="inj-type">
+                            <option value="http_500">HTTP 500 Errors</option>
+                            <option value="latency">High Latency</option>
+                            <option value="cpu_stress">CPU Stress</option>
+                            <option value="memory_stress">Memory Stress</option>
+                            <option value="crash">Crash Pod</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <div class="form-group">
+                        <label>Intensity</label>
+                        <select id="inj-intensity">
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Duration (Seconds)</label>
+                        <input type="number" id="inj-duration" value="60">
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 15px; display: flex; gap: 10px; align-items: center;">
+                <button class="btn btn-danger" onclick="startInjection()">Start Injection</button>
+                <button class="btn btn-secondary" onclick="clearInjection()">Clear Injection</button>
+                <span id="inj-status-text" style="color: var(--warning); margin-left: auto;"></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let lastStable = null;
+        let lastCanary = null;
+
+        // Poll Status (every 3s)
+        setInterval(async () => {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                
+                const cls = `status-${data.classification}`;
+                let html = `
+                    <p><strong>Phase:</strong> ${data.rollout.phase}</p>
+                    <p><strong>Current Step:</strong> ${data.rollout.step}</p>
+                    <p><strong>Canary Weight:</strong> ${data.rollout.weight}%</p>
+                    <p><strong>Safety Score:</strong> <span class="status-indicator ${cls}">${data.score}/100</span></p>
+                    <p><strong>Action:</strong> <span style="text-transform: uppercase;">${data.action}</span></p>
+                `;
+                document.getElementById('status-panel').innerHTML = html;
+            } catch(e) {
+                console.error(e);
+            }
+        }, 3000);
+
+        // Poll Versions (every 2s)
+        setInterval(async () => {
+            try {
+                const res = await fetch('/api/version-check');
+                const data = await res.json();
+                
+                const elStable = document.getElementById('ver-stable');
+                const elCanary = document.getElementById('ver-canary');
+                
+                if (lastStable && lastStable !== data.stable) {
+                    elStable.classList.remove('flash');
+                    void elStable.offsetWidth; // trigger reflow
+                    elStable.classList.add('flash');
+                }
+                if (lastCanary && lastCanary !== data.canary) {
+                    elCanary.classList.remove('flash');
+                    void elCanary.offsetWidth; // trigger reflow
+                    elCanary.classList.add('flash');
+                }
+                
+                elStable.innerText = `Stable: v${data.stable}`;
+                elCanary.innerText = `Canary: v${data.canary}`;
+                
+                lastStable = data.stable;
+                lastCanary = data.canary;
+            } catch(e) {
+                console.error(e);
+            }
+        }, 2000);
+
+        // Poll Decisions (every 5s)
+        setInterval(async () => {
+            try {
+                const res = await fetch('/api/decisions?limit=5');
+                const data = await res.json();
+                
+                const tbody = document.querySelector('#decisions-table tbody');
+                tbody.innerHTML = '';
+                
+                data.decisions.forEach(d => {
+                    let date = new Date(d.timestamp).toLocaleTimeString();
+                    let actionColor = d.action === 'abort' ? 'var(--danger)' : (d.action === 'promote' ? 'var(--success)' : 'var(--warning)');
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${date}</td>
+                            <td>${d.score}</td>
+                            <td style="color: ${actionColor}; font-weight: bold;">${d.action.toUpperCase()}</td>
+                            <td>${d.reason}</td>
+                        </tr>
+                    `;
+                });
+            } catch(e) {
+                console.error(e);
+            }
+        }, 5000);
+
+        // Poll Injection Status (every 2s)
+        setInterval(async () => {
+            try {
+                const res = await fetch('/api/inject/status');
+                const data = await res.json();
+                
+                let s = "";
+                if (data.canary && data.canary.fail_rate > 0) s += `[Canary: Failing ${data.canary.fail_rate*100}%] `;
+                if (data.canary && data.canary.extra_latency_ms > 0) s += `[Canary: Latency ${data.canary.extra_latency_ms}ms] `;
+                
+                if (data.stable && data.stable.fail_rate > 0) s += `[Stable: Failing ${data.stable.fail_rate*100}%] `;
+                if (data.stable && data.stable.extra_latency_ms > 0) s += `[Stable: Latency ${data.stable.extra_latency_ms}ms] `;
+                
+                document.getElementById('inj-status-text').innerText = s ? "Active Injections: " + s : "No active injections.";
+            } catch(e) {
+                console.error(e);
+            }
+        }, 2000);
+
+        async function startInjection() {
+            const target = document.getElementById('inj-target').value;
+            if (target === 'stable') {
+                if (!confirm("WARNING: You are about to inject a failure into the STABLE pods. This will affect real users and test the recovery verifier, but it violates canary isolation principles. Proceed?")) {
+                    return;
+                }
+            } else {
+                if (!confirm("Inject failure into CANARY pods?")) {
+                    return;
+                }
+            }
+            
+            const payload = {
+                target: target,
+                type: document.getElementById('inj-type').value,
+                intensity: document.getElementById('inj-intensity').value,
+                duration_seconds: parseInt(document.getElementById('inj-duration').value)
+            };
+            
+            await fetch('/api/inject', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+        }
+
+        async function clearInjection() {
+            await fetch('/api/inject/clear', {method: 'POST'});
+        }
+    </script>
+</body>
+</html>
