@@ -38,13 +38,16 @@ def get_rollout_status(name: str, namespace: str) -> dict:
     steps = spec.get("strategy", {}).get("canary", {}).get("steps", [])
     
     weight = 100
-    if current_step_index is not None and steps:
-        # Find the last setWeight before or at the current step
-        # If current_step_index == len(steps), it's fully promoted.
-        for i in range(min(current_step_index, len(steps) - 1), -1, -1):
-            if "setWeight" in steps[i]:
-                weight = steps[i]["setWeight"]
-                break
+    if phase == "Healthy":
+        weight = 100
+    elif current_step_index is not None and steps:
+        if current_step_index >= len(steps):
+            weight = 100
+        else:
+            for i in range(min(current_step_index, len(steps) - 1), -1, -1):
+                if "setWeight" in steps[i]:
+                    weight = steps[i]["setWeight"]
+                    break
                 
     is_canary = phase in ["Progressing", "Paused"]
     
