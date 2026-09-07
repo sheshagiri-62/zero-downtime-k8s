@@ -28,13 +28,13 @@ spec:
       labels:
         app: myapp
       annotations:
-        version: "1.11.4"
+        version: "1.11.5"
     spec:
       imagePullSecrets:
         - name: ghcr-secret
       containers:
         - name: myapp
-          image: ghcr.io/sheshagiri-62/zero-downtime-k8s/myapp:1.11.4
+          image: ghcr.io/sheshagiri-62/zero-downtime-k8s/myapp:1.11.5
           imagePullPolicy: Always
           ports:
             - containerPort: 8000

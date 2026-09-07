@@ -1,0 +1,11 @@
+# libuuid / util-linux vulnerabilities
+# Justification: These vulnerabilities relate to the 'mount' and 'nsenter' commands (SUID mount, post-mount hooks, cgroup migrations).
+# Our FastAPI application runs in an unprivileged container and does not perform any filesystem mounting or namespace migrations,
+# making these CVEs not exploitable in this context.
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-76642
+CVE-2026-78408
+CVE-2026-78409
+CVE-2026-78410
