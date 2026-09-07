@@ -450,6 +450,10 @@ select:focus, input:focus { outline: none; border-color: var(--accent2); }
         </div>
       </div>
       <div style="font-size:12px;color:var(--muted);margin-top:12px">Phase: <strong id="cl-phase">—</strong> &nbsp;|&nbsp; Step: <strong id="cl-step">—</strong></div>
+      <div style="margin-top:16px;display:flex;gap:10px">
+        <button onclick="manualPromote()" style="flex:1;background:var(--success);color:#fff;border:none;padding:10px;border-radius:6px;font-weight:600;cursor:pointer">▶ Promote Next Step</button>
+        <button onclick="manualAbort()" style="flex:1;background:var(--danger);color:#fff;border:none;padding:10px;border-radius:6px;font-weight:600;cursor:pointer">⏹ Abort / Rollback</button>
+      </div>
     </div>
     <div class="card">
       <h3>Rollout Steps</h3>
@@ -574,6 +578,11 @@ select:focus, input:focus { outline: none; border-color: var(--accent2); }
         <div style="margin-top:10px;display:flex;justify-content:center;gap:16px">
           <div style="font-size:12px"><span style="color:var(--warning)">●</span> Warnings: <strong id="pe-warnings">0</strong></div>
           <div style="font-size:12px"><span style="color:var(--danger)">●</span> Critical: <strong id="pe-criticals">0</strong></div>
+        </div>
+        <div style="margin-top:16px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap">
+          <button class="btn-action btn-promote" onclick="manualPromote()" style="background:var(--success);color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer">▶ Execute PROMOTE</button>
+          <button class="btn-action btn-abort" onclick="manualAbort()" style="background:var(--danger);color:#fff;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer">⏹ Execute ABORT</button>
+          <button id="btn-toggle-auto" onclick="toggleAutoPolicy()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">⚙ Auto-Policy: OFF</button>
         </div>
       </div>
     </div>
@@ -993,19 +1002,93 @@ async function pollInjectStatus() {
     if (!el) return;
 
     const lines = [];
-    if (d.canary?.fail_rate > 0) lines.push(`<div><span class="dot-blink"></span> Canary: HTTP 500 @ ${(d.canary.fail_rate*100).toFixed(0)}% rate</div>`);
-    if (d.canary?.extra_latency_ms > 0) lines.push(`<div><span class="dot-blink"></span> Canary: +${d.canary.extra_latency_ms}ms latency</div>`);
-    if (d.stable?.fail_rate > 0) lines.push(`<div><span class="dot-blink"></span> Stable: HTTP 500 @ ${(d.stable.fail_rate*100).toFixed(0)}%</div>`);
-    if (d.stable?.extra_latency_ms > 0) lines.push(`<div><span class="dot-blink"></span> Stable: +${d.stable.extra_latency_ms}ms latency</div>`);
+    ['canary', 'stable'].forEach(target => {
+      const data = d[target];
+      if (!data) return;
+      if (data.status === 'active_failure' && data.failure) {
+        const f = data.failure;
+        const rem = data.remaining_seconds != null ? ` (${data.remaining_seconds}s remaining)` : '';
+        lines.push(`<div><span class="dot-blink" style="background:var(--danger)"></span> <strong style="text-transform:capitalize;color:var(--text)">${target}</strong>: <span style="color:var(--danger);font-weight:700">${f.type.toUpperCase()}</span> [${f.intensity}]${rem}</div>`);
+      } else if (data.fail_rate > 0) {
+        lines.push(`<div><span class="dot-blink" style="background:var(--danger)"></span> <strong style="text-transform:capitalize">${target}</strong>: HTTP 500 @ ${(data.fail_rate*100).toFixed(0)}%</div>`);
+      } else if (data.extra_latency_ms > 0) {
+        lines.push(`<div><span class="dot-blink" style="background:var(--danger)"></span> <strong style="text-transform:capitalize">${target}</strong>: +${data.extra_latency_ms}ms latency</div>`);
+      }
+    });
 
     if (lines.length > 0) {
       el.className = 'inject-status inject-active';
-      el.innerHTML = `<div style="font-weight:600;color:var(--danger);margin-bottom:8px">⚡ FAILURE ACTIVE</div>` + lines.join('');
+      el.innerHTML = `<div style="font-weight:700;color:var(--danger);margin-bottom:8px">⚡ FAILURE ACTIVELY INJECTED</div>` + lines.join('');
     } else {
       el.className = 'inject-status';
-      el.innerHTML = `<span style="color:var(--muted)"><span class="dot-blink green"></span> No active injections</span>`;
+      el.innerHTML = `<span style="color:var(--muted)"><span class="dot-blink green"></span> No active injections (Cluster Normal)</span>`;
     }
   } catch(e) {}
+}
+
+// ── MANUAL ROLLOUT ACTIONS ───────────────────
+async function manualPromote() {
+  if (!confirm('Execute PROMOTE to advance Canary to next traffic step?')) return;
+  try {
+    const r = await fetch('/api/rollout/promote', {method: 'POST'});
+    const data = await r.json();
+    if (r.ok) {
+      pollStatus();
+      pollDecisions();
+    } else {
+      alert('Promote failed: ' + (data.error || JSON.stringify(data)));
+    }
+  } catch(e) {
+    alert('Promote error: ' + e);
+  }
+}
+
+async function manualAbort() {
+  if (!confirm('Execute ABORT to immediately cancel canary and revert all traffic to stable?')) return;
+  try {
+    const r = await fetch('/api/rollout/abort', {method: 'POST'});
+    const data = await r.json();
+    if (r.ok) {
+      pollStatus();
+      pollDecisions();
+    } else {
+      alert('Abort failed: ' + (data.error || JSON.stringify(data)));
+    }
+  } catch(e) {
+    alert('Abort error: ' + e);
+  }
+}
+
+async function toggleAutoPolicy() {
+  try {
+    const r = await fetch('/api/policy/auto', {method: 'POST'});
+    const d = await r.json();
+    updateAutoPolicyBtn(d.auto_policy);
+  } catch(e) {}
+}
+
+async function pollAutoPolicy() {
+  try {
+    const r = await fetch('/api/policy/auto');
+    const d = await r.json();
+    updateAutoPolicyBtn(d.auto_policy);
+  } catch(e) {}
+}
+
+function updateAutoPolicyBtn(enabled) {
+  const btn = document.getElementById('btn-toggle-auto');
+  if (!btn) return;
+  if (enabled) {
+    btn.textContent = '⚙ Auto-Policy: ON (Loop Active)';
+    btn.style.background = 'rgba(16,185,129,.2)';
+    btn.style.color = 'var(--success)';
+    btn.style.borderColor = 'var(--success)';
+  } else {
+    btn.textContent = '⚙ Auto-Policy: OFF';
+    btn.style.background = 'var(--bg3)';
+    btn.style.color = 'var(--text)';
+    btn.style.borderColor = 'var(--border)';
+  }
 }
 
 // ── INJECTION ACTIONS ────────────────────────
@@ -1048,7 +1131,7 @@ async function clearInjection() {
 }
 
 // ── START ALL POLLERS ────────────────────────
-pollStatus(); pollCluster(); pollMetrics(); pollDecisions(); pollPipeline(); pollInjectStatus();
+pollStatus(); pollCluster(); pollMetrics(); pollDecisions(); pollPipeline(); pollInjectStatus(); pollAutoPolicy();
 
 setInterval(pollStatus, 3000);
 setInterval(pollCluster, 10000);
@@ -1056,6 +1139,7 @@ setInterval(pollMetrics, 5000);
 setInterval(pollDecisions, 5000);
 setInterval(pollPipeline, 10000);
 setInterval(pollInjectStatus, 2000);
+setInterval(pollAutoPolicy, 5000);
 </script>
 </body>
 </html>

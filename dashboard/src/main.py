@@ -10,7 +10,7 @@ from typing import Optional
 from src.collector import PrometheusCollector
 from src.rules import RuleEngine
 from src.scoring import safety_score
-from src.rollout_controller import get_rollout_status
+from src.rollout_controller import get_rollout_status, promote, abort
 from src.db import engine
 
 app = FastAPI()
@@ -143,27 +143,159 @@ async def get_decisions(limit: int = 20):
     except Exception as e:
         return {"decisions": [], "error": str(e)}
 
+auto_policy_enabled = False
+
+def log_decision_to_db(rollout_phase: str, step_weight: int, score: float, classification: str, decision: str, action_taken: str, reason: str, snapshot: dict = None):
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            import json
+            conn.execute(
+                text("""
+                    INSERT INTO decision_log (
+                        rollout_name, namespace, rollout_phase, step_weight,
+                        safety_score, classification, decision, action_taken, action_success, reason, snapshot
+                    ) VALUES (
+                        'myapp', 'zero-downtime', :phase, :weight,
+                        :score, :classification, :decision, :action_taken, true, :reason, :snapshot
+                    )
+                """),
+                {
+                    "phase": rollout_phase,
+                    "weight": step_weight,
+                    "score": score,
+                    "classification": classification.upper() if classification else "UNKNOWN",
+                    "decision": decision.upper() if decision else "UNKNOWN",
+                    "action_taken": action_taken,
+                    "reason": reason,
+                    "snapshot": json.dumps(snapshot) if snapshot else None
+                }
+            )
+            conn.commit()
+    except Exception as e:
+        print(f"Error logging decision to DB: {e}")
+
+async def auto_policy_background_worker():
+    global auto_policy_enabled
+    while True:
+        await asyncio.sleep(10)
+        if not auto_policy_enabled:
+            continue
+        try:
+            r_status = get_rollout_status("myapp", "zero-downtime")
+            phase = r_status.get("phase")
+            if phase == "Paused":
+                metrics = collector.get_snapshot("zero-downtime")
+                evaluations = rule_engine.evaluate(metrics)
+                score = safety_score(evaluations)
+                classification = "healthy" if score >= 80 else ("critical" if score < 50 else "degraded")
+                if classification == "healthy":
+                    promote("myapp", "zero-downtime")
+                    log_decision_to_db(phase, r_status.get("weight", 0), score, classification, "PROMOTE", "promote", f"Auto-policy promoted step (score: {score:.1f})", metrics)
+                elif classification == "critical":
+                    abort("myapp", "zero-downtime")
+                    log_decision_to_db(phase, r_status.get("weight", 0), score, classification, "ABORT", "abort", f"Auto-policy aborted rollout due to critical score: {score:.1f}", metrics)
+        except Exception as e:
+            print(f"Auto policy worker error: {e}")
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(auto_policy_background_worker())
+
 @app.get("/api/version-check")
 async def check_versions():
-    async with httpx.AsyncClient(timeout=2.0) as client:
-        stable_ver = "unknown"
-        canary_ver = "unknown"
+    stable_ver = "unknown"
+    canary_ver = "unknown"
+    
+    # Check pod image tags in Kubernetes directly
+    try:
+        import subprocess, json
+        r_rollout = subprocess.run(["kubectl", "get", "rollout", "myapp", "-n", "zero-downtime", "-o", "json"], capture_output=True, text=True, timeout=5)
+        stable_hash = None
+        canary_hash = None
+        if r_rollout.returncode == 0:
+            ro_data = json.loads(r_rollout.stdout)
+            stable_hash = ro_data.get("status", {}).get("stableRS")
+            canary_hash = ro_data.get("status", {}).get("currentPodHash")
+            
+        r_pods = subprocess.run(["kubectl", "get", "pods", "-n", "zero-downtime", "-l", "app=myapp", "-o", "json"], capture_output=True, text=True, timeout=5)
+        if r_pods.returncode == 0:
+            items = json.loads(r_pods.stdout).get("items", [])
+            for p in items:
+                img = p.get("spec", {}).get("containers", [{}])[0].get("image", "")
+                clean_img = img.split("@")[0]
+                tag = clean_img.split(":")[-1] if ":" in clean_img else clean_img
+                pod_hash = p.get("metadata", {}).get("labels", {}).get("rollouts-pod-template-hash")
+                
+                if canary_hash and pod_hash == canary_hash:
+                    canary_ver = tag
+                elif stable_hash and pod_hash == stable_hash:
+                    stable_ver = tag
+                elif not canary_hash and "c5977c65c" in str(pod_hash):
+                    canary_ver = tag
+                elif not stable_hash and "6d7d77ccd7" in str(pod_hash):
+                    stable_ver = tag
+    except Exception:
+        pass
         
-        try:
-            r1 = await client.get(f"{STABLE_URL}/version")
-            if r1.status_code == 200:
-                stable_ver = r1.json().get("version", "unknown")
-        except:
-            pass
-            
-        try:
-            r2 = await client.get(f"{CANARY_URL}/version")
-            if r2.status_code == 200:
-                canary_ver = r2.json().get("version", "unknown")
-        except:
-            pass
-            
-        return {"stable": stable_ver, "canary": canary_ver}
+    # Fallback to HTTP endpoints if pod check didn't resolve
+    if stable_ver == "unknown" or canary_ver == "unknown":
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            try:
+                r1 = await client.get(f"{STABLE_URL}/version")
+                if r1.status_code == 200 and stable_ver == "unknown":
+                    stable_ver = r1.json().get("version", "unknown")
+            except:
+                pass
+            try:
+                r2 = await client.get(f"{CANARY_URL}/version")
+                if r2.status_code == 200 and canary_ver == "unknown":
+                    canary_ver = r2.json().get("version", "unknown")
+            except:
+                pass
+                
+    return {"stable": stable_ver, "canary": canary_ver}
+
+@app.post("/api/rollout/promote")
+async def api_promote():
+    try:
+        promote("myapp", "zero-downtime")
+        status = get_rollout_status("myapp", "zero-downtime")
+        metrics = collector.get_snapshot("zero-downtime")
+        evals = rule_engine.evaluate(metrics)
+        score = safety_score(evals)
+        log_decision_to_db(status.get("phase", "Paused"), status.get("weight", 0), score, "healthy", "PROMOTE", "promote", "Manual UI Promote clicked", metrics)
+        return {"status": "promoted", "rollout": status}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/api/rollout/abort")
+async def api_abort():
+    try:
+        abort("myapp", "zero-downtime")
+        status = get_rollout_status("myapp", "zero-downtime")
+        metrics = collector.get_snapshot("zero-downtime")
+        evals = rule_engine.evaluate(metrics)
+        score = safety_score(evals)
+        log_decision_to_db(status.get("phase", "Aborted"), status.get("weight", 0), score, "critical", "ABORT", "abort", "Manual UI Abort clicked", metrics)
+        return {"status": "aborted", "rollout": status}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/policy/auto")
+async def get_auto_policy():
+    global auto_policy_enabled
+    return {"auto_policy": auto_policy_enabled}
+
+@app.post("/api/policy/auto")
+async def toggle_auto_policy(request: Request):
+    global auto_policy_enabled
+    try:
+        body = await request.json()
+        auto_policy_enabled = bool(body.get("enabled", not auto_policy_enabled))
+    except:
+        auto_policy_enabled = not auto_policy_enabled
+    return {"auto_policy": auto_policy_enabled}
 
 @app.post("/api/inject")
 async def inject_failure(request: Request):
@@ -209,7 +341,7 @@ async def injection_status():
             if r1.status_code == 200:
                 results["stable"] = r1.json()
             else:
-                results["stable"] = {"status": "unknown"}
+                results["stable"] = {"status": "normal"}
         except:
             results["stable"] = {"status": "unreachable"}
             
@@ -218,7 +350,7 @@ async def injection_status():
             if r2.status_code == 200:
                 results["canary"] = r2.json()
             else:
-                results["canary"] = {"status": "unknown"}
+                results["canary"] = {"status": "normal"}
         except:
             results["canary"] = {"status": "unreachable"}
             
@@ -226,3 +358,4 @@ async def injection_status():
 
 # Mount static files LAST — must be after all /api/* routes
 app.mount("/ui", StaticFiles(directory="static", html=True), name="static")
+
