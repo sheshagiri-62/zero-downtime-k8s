@@ -8,8 +8,8 @@ from typing import Optional
 
 # Re-using logic from policy-engine
 from src.collector import PrometheusCollector
-from src.rules import evaluate_metrics
-from src.scoring import calculate_score, determine_action
+from src.rules import RuleEngine
+from src.scoring import safety_score
 from src.rollout_controller import get_rollout_status
 from src.db import engine
 
@@ -19,6 +19,7 @@ ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "f3c9a1d5-89b2-4d7c-9304-4b486b8c47d2")
 PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090")
 
 collector = PrometheusCollector(PROMETHEUS_URL)
+rule_engine = RuleEngine()
 
 STABLE_URL = "http://myapp-stable-svc.zero-downtime.svc.cluster.local"
 CANARY_URL = "http://myapp-canary-svc.zero-downtime.svc.cluster.local"
@@ -29,16 +30,17 @@ app.mount("/ui", StaticFiles(directory="static", html=True), name="static")
 @app.get("/api/status")
 async def get_status():
     rollout_info = get_rollout_status("myapp", "zero-downtime")
-    metrics = collector.collect_all()
-    evaluations = evaluate_metrics(metrics)
-    score = calculate_score(evaluations)
-    action = determine_action(score)
+    metrics = collector.get_snapshot("zero-downtime")
+    evaluations = rule_engine.evaluate(metrics)
+    score = safety_score(evaluations)
     
     classification = "healthy"
     if score < 50:
         classification = "critical"
     elif score < 80:
         classification = "degraded"
+        
+    action = "promote" if classification == "healthy" else ("abort" if classification == "critical" else "hold")
         
     return {
         "rollout": rollout_info,
