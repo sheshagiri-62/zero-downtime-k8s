@@ -12,6 +12,22 @@ from src.rules import RuleEngine
 from src.scoring import safety_score
 from src.rollout_controller import get_rollout_status, promote, abort
 from src.db import engine
+import json
+
+def get_pod_urls(svc_name: str) -> list[str]:
+    try:
+        import subprocess
+        r = subprocess.run(["kubectl", "get", "endpoints", svc_name, "-n", "zero-downtime", "-o", "json"], capture_output=True, text=True, timeout=5)
+        if r.returncode != 0:
+            return []
+        data = json.loads(r.stdout)
+        urls = []
+        for subset in data.get("subsets", []):
+            for address in subset.get("addresses", []):
+                urls.append(f"http://{address['ip']}:8000")
+        return urls
+    except Exception:
+        return []
 
 app = FastAPI()
 
@@ -302,57 +318,70 @@ async def inject_failure(request: Request):
     data = await request.json()
     target = data.get("target", "canary")
     
-    url = CANARY_URL if target == "canary" else STABLE_URL
+    svc_name = "myapp-canary-svc" if target == "canary" else "myapp-stable-svc"
     headers = {"X-Admin-Token": ADMIN_TOKEN}
     
+    urls = get_pod_urls(svc_name)
+    if not urls:
+        urls = [CANARY_URL if target == "canary" else STABLE_URL]
+        
     async with httpx.AsyncClient() as client:
-        try:
-            r = await client.post(f"{url}/admin/inject", json=data, headers=headers, timeout=5.0)
-            return JSONResponse(status_code=r.status_code, content=r.json())
-        except Exception as e:
-            return JSONResponse(status_code=500, content={"error": str(e)})
+        last_resp = None
+        for u in urls:
+            try:
+                r = await client.post(f"{u}/admin/inject", json=data, headers=headers, timeout=5.0)
+                last_resp = r
+            except Exception as e:
+                pass
+        
+        if last_resp:
+            return JSONResponse(status_code=last_resp.status_code, content=last_resp.json())
+        return JSONResponse(status_code=500, content={"error": "Failed to reach pods"})
 
 @app.post("/api/inject/clear")
 async def clear_injection():
     headers = {"X-Admin-Token": ADMIN_TOKEN}
-    results = {}
+    
+    urls = get_pod_urls("myapp-canary-svc") + get_pod_urls("myapp-stable-svc")
+    if not urls:
+        urls = [CANARY_URL, STABLE_URL]
+    
+    urls = list(set(urls))
+    
     async with httpx.AsyncClient() as client:
-        try:
-            r1 = await client.post(f"{STABLE_URL}/admin/clear", headers=headers, timeout=2.0)
-            results["stable"] = r1.json()
-        except Exception as e:
-            results["stable"] = {"error": str(e)}
-            
-        try:
-            r2 = await client.post(f"{CANARY_URL}/admin/clear", headers=headers, timeout=2.0)
-            results["canary"] = r2.json()
-        except Exception as e:
-            results["canary"] = {"error": str(e)}
-            
-    return results
+        for u in urls:
+            try:
+                await client.post(f"{u}/admin/clear", headers=headers, timeout=2.0)
+            except Exception:
+                pass
+    return {"status": "cleared"}
 
 @app.get("/api/inject/status")
 async def injection_status():
     headers = {"X-Admin-Token": ADMIN_TOKEN}
-    results = {}
+    results = {"stable": {"status": "normal"}, "canary": {"status": "normal"}}
+    
+    stable_urls = get_pod_urls("myapp-stable-svc") or [STABLE_URL]
+    canary_urls = get_pod_urls("myapp-canary-svc") or [CANARY_URL]
+    
     async with httpx.AsyncClient() as client:
-        try:
-            r1 = await client.get(f"{STABLE_URL}/admin/status", headers=headers, timeout=2.0)
-            if r1.status_code == 200:
-                results["stable"] = r1.json()
-            else:
-                results["stable"] = {"status": "normal"}
-        except:
-            results["stable"] = {"status": "unreachable"}
-            
-        try:
-            r2 = await client.get(f"{CANARY_URL}/admin/status", headers=headers, timeout=2.0)
-            if r2.status_code == 200:
-                results["canary"] = r2.json()
-            else:
-                results["canary"] = {"status": "normal"}
-        except:
-            results["canary"] = {"status": "unreachable"}
+        for u in stable_urls:
+            try:
+                r = await client.get(f"{u}/admin/status", headers=headers, timeout=2.0)
+                if r.status_code == 200 and r.json().get("status") == "active_failure":
+                    results["stable"] = r.json()
+                    break
+            except:
+                pass
+                
+        for u in canary_urls:
+            try:
+                r = await client.get(f"{u}/admin/status", headers=headers, timeout=2.0)
+                if r.status_code == 200 and r.json().get("status") == "active_failure":
+                    results["canary"] = r.json()
+                    break
+            except:
+                pass
             
     return results
 
