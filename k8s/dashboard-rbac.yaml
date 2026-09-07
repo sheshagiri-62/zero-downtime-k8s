@@ -12,7 +12,7 @@ metadata:
 rules:
   - apiGroups: ["argoproj.io"]
     resources: ["rollouts"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list", "watch", "patch", "update"]
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "watch"]
@@ -29,4 +29,27 @@ subjects:
 roleRef:
   kind: Role
   name: dashboard-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# ClusterRole for listing nodes (cluster-scoped resource)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dashboard-node-reader
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dashboard-node-reader-binding
+subjects:
+  - kind: ServiceAccount
+    name: dashboard-sa
+    namespace: zero-downtime
+roleRef:
+  kind: ClusterRole
+  name: dashboard-node-reader
   apiGroup: rbac.authorization.k8s.io
