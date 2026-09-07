@@ -957,12 +957,16 @@ async function pollDecisions() {
       const t = row.timestamp ? new Date(row.timestamp).toLocaleTimeString() : '—';
       const action = (row.action || 'none').toUpperCase();
       const color = actionColor(action);
+      const snap = typeof row.metrics_snapshot === 'string' ? JSON.parse(row.metrics_snapshot || '{}') : (row.metrics_snapshot || {});
+      const errStr = snap.error_rate_pct != null ? `${snap.error_rate_pct.toFixed(1)}%` : '—';
+      const latStr = snap.p95_latency_ms != null ? `${Math.round(snap.p95_latency_ms)}ms` : '—';
       return `<tr>
         <td style="font-family:'JetBrains Mono',monospace;font-size:12px">${t}</td>
-        <td>${row.score !== null ? row.score : '—'}</td>
+        <td><strong style="color:${row.score >= 80 ? 'var(--success)' : row.score < 50 ? 'var(--danger)' : 'var(--warning)'}">${row.score !== null ? Math.round(row.score) : '—'}</strong></td>
         <td style="color:${color};font-weight:700">${action}</td>
-        <td>—</td><td>—</td>
-        <td style="color:var(--muted);font-size:12px">${row.reason ?? '—'}</td>
+        <td style="font-size:12px;color:var(--muted)">${errStr}</td>
+        <td style="font-size:12px;color:var(--muted)">${latStr}</td>
+        <td style="color:var(--text);font-size:12px">${row.reason ?? '—'}</td>
       </tr>`;
     }).join('');
   } catch(e) {}
