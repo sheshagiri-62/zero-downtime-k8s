@@ -29,18 +29,25 @@ app.mount("/ui", StaticFiles(directory="static", html=True), name="static")
 
 @app.get("/api/status")
 async def get_status():
-    rollout_info = get_rollout_status("myapp", "zero-downtime")
-    metrics = collector.get_snapshot("zero-downtime")
-    evaluations = rule_engine.evaluate(metrics)
-    score = safety_score(evaluations)
+    try:
+        rollout_info = get_rollout_status("myapp", "zero-downtime")
+    except Exception as e:
+        rollout_info = {"phase": "unknown", "step_index": None, "weight": 0, "is_canary": False, "error": str(e)[:200]}
     
-    classification = "healthy"
-    if score < 50:
-        classification = "critical"
-    elif score < 80:
-        classification = "degraded"
-        
-    action = "promote" if classification == "healthy" else ("abort" if classification == "critical" else "hold")
+    try:
+        metrics = collector.get_snapshot("zero-downtime")
+        evaluations = rule_engine.evaluate(metrics)
+        score = safety_score(evaluations)
+    except Exception as e:
+        metrics = {}
+        score = None
+        evaluations = []
+    
+    classification = "unknown"
+    action = "unknown"
+    if score is not None:
+        classification = "healthy" if score >= 80 else ("critical" if score < 50 else "degraded")
+        action = "promote" if classification == "healthy" else ("abort" if classification == "critical" else "hold")
         
     return {
         "rollout": rollout_info,

@@ -220,17 +220,19 @@
                 const res = await fetch('/api/status');
                 const data = await res.json();
                 
-                const cls = `status-${data.classification}`;
+                const cls = data.classification !== 'unknown' ? `status-${data.classification}` : '';
+                const score = data.score !== null ? `${data.score}/100` : 'N/A';
                 let html = `
-                    <p><strong>Phase:</strong> ${data.rollout.phase}</p>
-                    <p><strong>Current Step:</strong> ${data.rollout.step}</p>
-                    <p><strong>Canary Weight:</strong> ${data.rollout.weight}%</p>
-                    <p><strong>Safety Score:</strong> <span class="status-indicator ${cls}">${data.score}/100</span></p>
+                    <p><strong>Phase:</strong> ${data.rollout.phase || 'unknown'}</p>
+                    <p><strong>Current Step:</strong> ${data.rollout.step_index ?? 'N/A'}</p>
+                    <p><strong>Canary Weight:</strong> ${data.rollout.weight ?? 0}%</p>
+                    <p><strong>Safety Score:</strong> <span class="status-indicator ${cls}">${score}</span></p>
                     <p><strong>Action:</strong> <span style="text-transform: uppercase;">${data.action}</span></p>
+                    ${data.rollout.error ? `<p style="color: var(--danger); font-size: 0.8rem;">⚠ Rollout error: ${data.rollout.error}</p>` : ''}
                 `;
                 document.getElementById('status-panel').innerHTML = html;
             } catch(e) {
-                console.error(e);
+                document.getElementById('status-panel').innerHTML = '<p style="color: var(--danger);">⚠ Failed to connect to backend</p>';
             }
         }, 3000);
 
